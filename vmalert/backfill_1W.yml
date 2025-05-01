@@ -1,0 +1,56 @@
+groups:
+  - name: backfill_1w
+    interval: 1h
+    rules:
+      - record: web_requests
+        expr: sum_over_time((sum(increase(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"}[1h])))[7d:1h])
+      - record: web_sites
+        expr: avg_over_time(max(max(netdata_prometheus_custom_exporter_local_manifest_ghostcloud_total_sites_sites_average{service="netdata-kvstore-qa-01"}) or max(netdata_sites_number_average{chart="manifest_Manifest_Network.sites",many_chain="manifest-web-alpha"}))[1h:5m])
+      - record: blockchain_blocks
+        expr: avg_over_time(round(avg(tendermint_consensus_height{service="tendermint-prod-lifted-alpha"}) + avg(cometbft_consensus_height{manifest_tier="mainnet"}))[1h:5m])
+      - record: blockchain_tokens
+        expr: avg_over_time(max(netdata_tokens_number_average{many_chain="manifold-ledger-alpha"})[1h:5m])
+      - record: gpu_nvidia_cuda_total
+        expr: avg_over_time(sum(netdata_cuda_cores_number_average{manifest_network="true",dimension="cuda_cores"})[1h:5m])
+      - record: gpu_amd_memory
+        expr: avg_over_time((sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="free"}) + sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="used"}))[1h:5m])
+      - record: gpu_amd_total
+        expr: avg_over_time(count(netdata_amdgpu_gpu_utilization_percentage_average{manifest_network="true"})[1h:5m])
+      - record: gpu_nvidia_memory
+        expr: avg_over_time((sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="free"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="used"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="reserved"}))[1h:5m])
+      - record: gpu_nvidia_total
+        expr: avg_over_time(count(netdata_nvidia_smi_gpu_utilization_percent_average{manifest_network="true",dimension="gpu",family="gpu utilization"})[1h:5m])
+      - record: gpu_memory
+        expr: avg_over_time((sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="free"})+sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="used"})+sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="free"})+sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="used"})+sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="reserved"}))[1h:5m])
+      - record: gpu_total
+        expr: avg_over_time((count(netdata_nvidia_smi_gpu_utilization_percent_average{manifest_network="true",dimension="gpu",family="gpu utilization"}) + count(netdata_amdgpu_gpu_utilization_percentage_average{manifest_network="true"}))[1h:5m])
+      - record: kube_memory
+        expr: avg_over_time((sum(netdata_system_ram_MiB_average{service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02"})/1048576)[1h:5m])
+      - record: kube_cpu
+        expr: avg_over_time(count(netdata_cpu_cpu_percentage_average{service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02",dimension="idle"})[1h:5m])
+      - record: kube_nodes
+        expr: avg_over_time(count(up{manifest_network="true",metric_source="netdata",service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02"})[1h:5m])
+      - record: kube_pods
+        expr: avg_over_time(count(netdata_k8s_cgroup_cpu_limit_percentage_average{manifest_network="true"})[1h:5m])
+      - record: minio_buckets
+        expr: avg_over_time(count(count by (bucket)(minio_bucket_usage_total_bytes{job="minio-stats"}))[1h:5m])
+      - record: minio_total
+        expr: avg_over_time((topk(1,sum(minio_bucket_usage_object_total{job="minio-stats"}) by (instance)))[1h:5m])
+      - record: web_servers
+        expr: sum(avg_over_time(netdata_prometheus_nginx_exporter_local_nginx_up_up_average{manifest_network="true"}[1h]))
+      - record: system_memory
+        expr: sum(avg_over_time(netdata_system_ram_MiB_average{manifest_network="true",job!="netdata-dweb-hosting",guest_containers!="true",metric_source="netdata"}[1h]))
+      - record: system_cpu_cores
+        expr: count(avg_over_time(netdata_cpu_cpu_percentage_average{dimension="idle",manifest_network="true",guest_containers!="true",service!="netdata-dweb-hosting",family="utilization",instance!~"q-cell-.*"}[1h]))
+      - record: system_tcp_received
+        expr: sum(avg_over_time(netdata_ipv4_tcppackets_packets_persec_average{manifest_network="true",dimension="received"}[1h]))
+      - record: system_tcp_sent
+        expr: sum(avg_over_time(netdata_ipv4_tcppackets_packets_persec_average{manifest_network="true",dimension="sent"}[1h])) * -1
+      - record: system_network_received
+        expr: sum(avg_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"received",manifest_network="true"}[1h]))
+      - record: system_network_sent
+        expr: sum(avg_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"sent",manifest_network="true"}[1h])) * -1
+      - record: disk_space
+        expr: sum(avg_over_time(netdata_disk_space_GiB_average{dimension="used",job!="netdata-dweb-hosting",guest_containers!="true",instance!~"q-cell-.*"}[1h]))
+      - record: disk_space_total
+        expr: sum(avg_over_time(netdata_disk_space_GiB_average{dimension="used",job!="netdata-dweb-hosting",guest_containers!="true",instance!~"q-cell-.*"}[1h])) + sum(avg_over_time(netdata_disk_space_GiB_average{dimension="avail",job!="netdata-dweb-hosting",guest_containers!="true",instance!~"q-cell-.*"}[1h]))

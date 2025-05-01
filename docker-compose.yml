@@ -1,0 +1,115 @@
+services:
+  vmalert:
+    image: victoriametrics/vmalert:latest
+    container_name: vmalert
+    depends_on:
+      - telegraf
+    volumes:
+      - ./vmalert:/etc/vmalert/
+    env_file: .env
+    command:
+      - '--remoteWrite.disablePathAppend'
+      - '--rule=/etc/vmalert/live_rules.yml'
+      - '--remoteWrite.showURL'
+      - '--remoteWrite.url=${TELEGRAF_URL}'
+      - '--datasource.showURL'
+      - '--datasource.url=${DATASOURCE_URL}'
+      - '--httpListenAddr=:8880'
+    # Use host network to access Prometheus SSH tunnel.
+    # I wasn't able to get `host.docker.internal` to work.
+    network_mode: host
+    restart: unless-stopped
+
+  vmalert_backfill_1Y:
+    image: victoriametrics/vmalert:latest
+    container_name: vmalert_backfill_1Y
+    depends_on:
+      - telegraf
+    volumes:
+      - ./vmalert:/etc/vmalert/
+      - ./scripts/vmalert-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+    env_file: .env
+    command:
+      - '--rule=/etc/vmalert/backfill_1Y.yml'
+      - '--from=1 year ago'
+    network_mode: host
+    restart: no
+
+  vmalert_backfill_1W:
+    image: victoriametrics/vmalert:latest
+    container_name: vmalert_backfill_1W
+    depends_on:
+      - telegraf
+    volumes:
+      - ./vmalert:/etc/vmalert/
+      - ./scripts/vmalert-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+    env_file: .env
+    command:
+      - '--rule=/etc/vmalert/backfill_1W.yml'
+      - '--from=1 week ago'
+    network_mode: host
+    restart: no
+
+  vmalert_backfill_1D:
+    image: victoriametrics/vmalert:latest
+    container_name: vmalert_backfill_1D
+    depends_on:
+      - telegraf
+    volumes:
+      - ./vmalert:/etc/vmalert/
+      - ./scripts/vmalert-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+    env_file: .env
+    command:
+      - '--rule=/etc/vmalert/backfill_1D.yml'
+      - '--from=1 day ago'
+    network_mode: host
+    restart: no
+
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    ports:
+      - "9273:9273"
+      - "9274:9274"
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: timescaledb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: metrics
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  postgrest:
+    image: postgrest/postgrest:latest
+    container_name: postgrest
+    ports:
+      - "3000:3000"
+    environment:
+      PGRST_DB_URI: postgres://postgres:postgres@timescaledb:5432/metrics
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: postgres
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  timescaledb_data:

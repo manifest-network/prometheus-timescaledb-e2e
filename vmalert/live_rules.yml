@@ -1,0 +1,57 @@
+groups:
+  - name: live
+    concurrency: 4
+    interval: 10s
+    rules:
+      - record: disk_space
+        expr: sum(netdata_disk_space_GiB_average{dimension="used",job!="netdata-dweb-hosting", guest_containers!="true", instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"})
+      - record: disk_space_total
+        expr: sum(netdata_disk_space_GiB_average{dimension="used",job!="netdata-dweb-hosting", guest_containers!="true", instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"}) + sum(netdata_disk_space_GiB_average{dimension="avail",job!="netdata-dweb-hosting",guest_containers!="true", instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"})
+      - record: system_network_sent
+        expr: sum(sum_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"sent",manifest_network="true"}[10m])) * -1
+      - record: system_network_received
+        expr: sum(sum_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"received",manifest_network="true"}[10m]))
+      - record: system_tcp_sent
+        expr: sum(sum_over_time(netdata_ipv4_tcppackets_packets_persec_average{manifest_network="true",dimension="sent"}[10m])) * -1
+      - record: system_tcp_received
+        expr: sum(sum_over_time(netdata_ipv4_tcppackets_packets_persec_average{manifest_network="true",dimension="received"}[10m]))
+      - record: system_cpu_cores
+        expr: count(netdata_cpu_cpu_percentage_average{dimension="idle", manifest_network="true", guest_containers!="true", service!="netdata-dweb-hosting", family="utilization",instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"})
+      - record: system_memory
+        expr: sum(netdata_system_ram_MiB_average{manifest_network="true", job!="netdata-dweb-hosting", guest_containers!="true", metric_source="netdata",instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"})
+      - record: web_servers
+        expr: sum(netdata_prometheus_nginx_exporter_local_nginx_up_up_average{manifest_network="true"})
+      - record: minio_total
+        expr: topk(1, sum(minio_bucket_usage_object_total{job="minio-stats"}) by (instance))
+      - record: minio_buckets
+        expr: count(count by (bucket) (minio_bucket_usage_total_bytes{job="minio-stats"}))
+      - record: kube_pods
+        expr: count(netdata_k8s_cgroup_cpu_limit_percentage_average{manifest_network="true"})
+      - record: kube_nodes
+        expr: count(up{manifest_network="true", metric_source="netdata", service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02"})
+      - record: kube_cpu
+        expr: count(netdata_cpu_cpu_percentage_average{service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02",dimension="idle"})
+      - record: kube_memory
+        expr: sum(netdata_system_ram_MiB_average{service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02"}) / 1048576
+      - record: gpu_total
+        expr: count(netdata_nvidia_smi_gpu_utilization_percent_average{manifest_network="true", dimension="gpu", family="gpu utilization"}) + count(netdata_amdgpu_gpu_utilization_percentage_average{manifest_network="true"})
+      - record: gpu_memory
+        expr: sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="free"}) + sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="used"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="free"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="used"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="reserved"})
+      - record: gpu_nvidia_total
+        expr: count(netdata_nvidia_smi_gpu_utilization_percent_average{manifest_network="true", dimension="gpu", family="gpu utilization"})
+      - record: gpu_nvidia_memory
+        expr: sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="free"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="used"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="reserved"})
+      - record: gpu_amd_total
+        expr: count(netdata_amdgpu_gpu_utilization_percentage_average{manifest_network="true"})
+      - record: gpu_amd_memory
+        expr: sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="free"}) + sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="used"})
+      - record: gpu_nvidia_cuda_total
+        expr: sum(netdata_cuda_cores_number_average{manifest_network="true", dimension="cuda_cores"})
+      - record: blockchain_tokens
+        expr: max(netdata_tokens_number_average{many_chain="manifold-ledger-alpha"})
+      - record: blockchain_blocks
+        expr: round(avg(tendermint_consensus_height{service="tendermint-prod-lifted-alpha"}) + avg(cometbft_consensus_height{manifest_tier="mainnet"}))
+      - record: web_sites
+        expr: max(max(netdata_prometheus_custom_exporter_local_manifest_ghostcloud_total_sites_sites_average{service="netdata-kvstore-qa-01"}) or max(netdata_sites_number_average{chart="manifest_Manifest_Network.sites",many_chain="manifest-web-alpha"}))
+      - record: web_requests
+        expr: sum_over_time((sum(increase(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"}[10s])))[365d:10s])
