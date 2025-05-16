@@ -118,7 +118,8 @@ services:
     environment:
       PGRST_DB_URI: postgres://postgres:postgres@timescaledb:5432/metrics
       PGRST_DB_SCHEMA: public
-      PGRST_DB_ANON_ROLE: postgres
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_JWT_SECRET: 63nXLCv3C0kz6mXz651p6ECynzm7IH7J # Hardcoded for demo purposes. The bearer token is `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoid3JpdGVyIn0.AVwQ4jGud_cxb8dzR_XTskiDq2CrfTX7QmPVndrsOGM`
     depends_on:
       timescaledb:
         condition: service_healthy
