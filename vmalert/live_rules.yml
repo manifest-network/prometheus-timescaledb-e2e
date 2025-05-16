@@ -3,6 +3,40 @@ groups:
     concurrency: 4
     interval: 10s
     rules:
+      - record: manifest_geo_metadata
+        expr: netdata_prometheus_custom_exporter_local_manifest_geo_metadata_metadata_average
+      - record: manifest_geo_latitude
+        expr: netdata_prometheus_custom_exporter_local_manifest_geo_latitude_latitude_average
+      - record: manifest_geo_longitude
+        expr: netdata_prometheus_custom_exporter_local_manifest_geo_longitude_longitude_average
+      - record: manifest_tokenomics_denom_info
+        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_denom_metadata_metadata_average
+      - record: manifest_tokenomics_token_count
+        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_token_count_token_average
+      - record: manifest_tokenomics_total_supply
+        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_total_supply_supply_average
+      - record: total_unique_user_mainnet
+        expr: yaci_addresses_total_unique_user{manifest_tier="mainnet"}
+      - record: total_unique_group_mainnet
+        expr: yaci_addresses_total_unique_group{manifest_tier="mainnet"}
+      - record: total_mfx_burned_mainnet
+        expr: yaci_tokenomics_total_burn_amount{manifest_tier="mainnet"}
+      - record: total_mfx_minted_mainnet
+        expr: yaci_tokenomics_total_payout_amount{manifest_tier="mainnet"}
+      - record: total_unique_user_testnet
+        expr: yaci_addresses_total_unique_user{manifest_tier="testnet"}
+      - record: total_unique_group_testnet
+        expr: yaci_addresses_total_unique_group{manifest_tier="testnet"}
+      - record: total_mfx_burned_testnet
+        expr: yaci_tokenomics_total_burn_amount{manifest_tier="testnet"}
+      - record: total_mfx_minted_testnet
+        expr: yaci_tokenomics_total_payout_amount{manifest_tier="testnet"}
+      - record: total_tx_count_mainnet
+        expr: yaci_transactions_total_count{manifest_tier="mainnet"}
+      - record: total_tx_count_testnet
+        expr: yaci_transactions_total_count{manifest_tier="testnet"}
+      - record: node_count
+        expr: count(up{manifest_network="true", metric_source="netdata"})
       - record: disk_space
         expr: sum(netdata_disk_space_GiB_average{dimension="used",job!="netdata-dweb-hosting", guest_containers!="true", instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"})
       - record: disk_space_total
