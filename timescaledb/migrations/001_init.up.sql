@@ -1,3 +1,5 @@
+-- The metric tables are created by Telegraf.
+-- See the Telegraf configuration file.
 BEGIN;
 
 CREATE OR REPLACE FUNCTION get_aggregated_metrics(

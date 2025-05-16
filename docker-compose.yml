@@ -79,6 +79,8 @@ services:
     depends_on:
       timescaledb:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   timescaledb:
@@ -92,10 +94,21 @@ services:
       POSTGRES_DB: metrics
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
-      - ./timescaledb/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  # Migrations are handled by the `migrate` CLI from https://github.com/golang-migrate/migrate
+  migrate:
+    image: migrate/migrate:latest
+    container_name: migrate
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - ./timescaledb/migrations:/migrations
+    entrypoint: [ "migrate", "-path", "/migrations", "-database", "postgres://postgres:postgres@timescaledb:5432/metrics?sslmode=disable", "up" ]
+    restart: "no"
 
   postgrest:
     image: postgrest/postgrest:latest
@@ -109,6 +122,8 @@ services:
     depends_on:
       timescaledb:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:
