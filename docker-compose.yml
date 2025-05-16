@@ -98,6 +98,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
 
+  # Migrations are handled by the `migrate` CLI from https://github.com/golang-migrate/migrate
   migrate:
     image: migrate/migrate:latest
     container_name: migrate
