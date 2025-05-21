@@ -2,6 +2,38 @@ groups:
   - name: backfill_1d
     interval: 1m
     rules:
+      - record: manifest_geo_metadata
+        expr: avg_over_time(manifest_geo_metadata[1d:1m])
+      - record: manifest_geo_latitude
+        expr: avg_over_time(manifest_geo_latitude[1d:1m])
+      - record: manifest_geo_longitude
+        expr: avg_over_time(manifest_geo_longitude[1d:1m])
+      - record: manifest_tokenomics_denom_info
+        expr: avg_over_time(manifest_tokenomics_denom_info[1d:1m])
+      - record: manifest_tokenomics_token_count
+        expr: avg_over_time(manifest_tokenomics_token_count[1d:1m])
+      - record: manifest_tokenomics_total_supply
+        expr: avg_over_time(manifest_tokenomics_total_supply[1d:1m])
+      - record: total_unique_user_mainnet
+        expr: avg_over_time(total_unique_user_mainnet[1d:1m])
+      - record: total_unique_group_mainnet
+        expr: avg_over_time(total_unique_group_mainnet[1d:1m])
+      - record: total_mfx_burned_mainnet
+        expr: sum_over_time(total_mfx_burned_mainnet[1d:1m])
+      - record: total_mfx_minted_mainnet
+        expr: sum_over_time(total_mfx_minted_mainnet[1d:1m])
+      - record: total_unique_user_testnet
+        expr: avg_over_time(total_unique_user_testnet[1d:1m])
+      - record: total_unique_group_testnet
+        expr: avg_over_time(total_unique_group_testnet[1d:1m])
+      - record: total_mfx_burned_testnet
+        expr: sum_over_time(total_mfx_burned_testnet[1d:1m])
+      - record: total_mfx_minted_testnet
+        expr: sum_over_time(total_mfx_minted_testnet[1d:1m])
+      - record: total_tx_count_mainnet
+        expr: sum_over_time(total_tx_count_mainnet[1d:1m])
+      - record: total_tx_count_testnet
+        expr: sum_over_time(total_tx_count_testnet[1d:1m])
       - record: node_count
         expr: avg_over_time(count(up{manifest_network="true", metric_source="netdata"})[1m:5s])
       - record: web_requests
