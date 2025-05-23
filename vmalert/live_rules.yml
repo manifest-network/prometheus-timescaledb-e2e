@@ -3,6 +3,18 @@ groups:
     concurrency: 4
     interval: 10s
     rules:
+      - record: minio_used
+        expr: max(sum(minio_bucket_usage_total_bytes{job="minio-stats"}) by (instance,server))
+      - record: system_memory_used
+        expr: sum(netdata_system_ram_MiB_average{dimension=~"used|cached|buffers", manifest_network="true", guest_containers!="true", job!="netdata-dweb-hosting", metric_source="netdata",instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"})
+      - record: disk_space_used
+        expr: sum(netdata_disk_space_GiB_average{dimension="used",job!="netdata-dweb-hosting", guest_containers!="true", instance!="q-cell-00.alpha.manifest0.net:19999", instance!="q-cell-01.alpha.manifest0.net:19999",instance!="q-cell-02.alpha.manifest0.net:19999", instance!="q-cell-03.alpha.manifest0.net:19999"})
+      - record: total_process
+        expr: sum(netdata_system_processes_processes_average{manifest_network="true", dimension="running"}) + sum(netdata_users_processes_processes_average{manifest_network="true"})
+      - record: blockchain_height_mainnet
+        expr: max(cometbft_consensus_height{manifest_tier="mainnet"})
+      - record: blockchain_height_testnet
+        expr: max(cometbft_consensus_height{manifest_tier="testnet"})
       - record: manifest_geo_metadata
         expr: netdata_prometheus_custom_exporter_local_manifest_geo_metadata_metadata_average
       - record: manifest_geo_latitude
@@ -66,19 +78,19 @@ groups:
       - record: kube_cpu
         expr: count(netdata_cpu_cpu_percentage_average{service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02",dimension="idle"})
       - record: kube_memory
-        expr: sum(netdata_system_ram_MiB_average{service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02"}) / 1048576
+        expr: sum(netdata_system_ram_MiB_average{service=~"netdata-kubernetes-prod-ops|netdata-kubernetes-prod-02"})
       - record: gpu_total
         expr: count(netdata_nvidia_smi_gpu_utilization_percent_average{manifest_network="true", dimension="gpu", family="gpu utilization"}) + count(netdata_amdgpu_gpu_utilization_percentage_average{manifest_network="true"})
       - record: gpu_memory
-        expr: sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="free"}) + sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="used"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="free"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="used"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="reserved"})
+        expr: sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{manifest_network="true"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{manifest_network="true"})
       - record: gpu_nvidia_total
         expr: count(netdata_nvidia_smi_gpu_utilization_percent_average{manifest_network="true", dimension="gpu", family="gpu utilization"})
       - record: gpu_nvidia_memory
-        expr: sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="free"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="used"}) + sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{dimension="reserved"})
+        expr: sum(netdata_nvidia_smi_gpu_frame_buffer_memory_usage_B_average{manifest_network="true"})
       - record: gpu_amd_total
         expr: count(netdata_amdgpu_gpu_utilization_percentage_average{manifest_network="true"})
       - record: gpu_amd_memory
-        expr: sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="free"}) + sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{dimension="used"})
+        expr: sum(netdata_amdgpu_gpu_mem_vis_vram_usage_bytes_average{manifest_network="true"})
       - record: gpu_nvidia_cuda_total
         expr: sum(netdata_cuda_cores_number_average{manifest_network="true", dimension="cuda_cores"})
       - record: blockchain_tokens
@@ -87,5 +99,5 @@ groups:
         expr: round(avg(tendermint_consensus_height{service="tendermint-prod-lifted-alpha"}) + avg(cometbft_consensus_height{manifest_tier="mainnet"}))
       - record: web_sites
         expr: max(max(netdata_prometheus_custom_exporter_local_manifest_ghostcloud_total_sites_sites_average{service="netdata-kvstore-qa-01"}) or max(netdata_sites_number_average{chart="manifest_Manifest_Network.sites",many_chain="manifest-web-alpha"}))
-      - record: web_requests
-        expr: sum_over_time((sum(increase(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"}[10s])))[365d:10s])
+      - record: web_requests_per_sec
+        expr: sum(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"})
