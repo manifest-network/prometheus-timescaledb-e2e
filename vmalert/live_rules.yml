@@ -100,4 +100,4 @@ groups:
       - record: web_sites
         expr: max(max(netdata_prometheus_custom_exporter_local_manifest_ghostcloud_total_sites_sites_average{service="netdata-kvstore-qa-01"}) or max(netdata_sites_number_average{chart="manifest_Manifest_Network.sites",many_chain="manifest-web-alpha"}))
       - record: web_requests_per_sec
-        expr: sum(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"})
+        expr: sum(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{manifest_network="true"})
