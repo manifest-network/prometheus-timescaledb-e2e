@@ -49,7 +49,7 @@ groups:
       - record: node_count
         expr: avg_over_time(count(up{manifest_network="true", metric_source="netdata"})[1d:5m])
       - record: web_requests_per_sec
-        expr: avg_over_time(sum(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"})[1d:5m])
+        expr: avg_over_time(sum(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{manifest_network="true"})[1d:5m])
       - record: web_sites
         expr: avg_over_time(max(max(netdata_prometheus_custom_exporter_local_manifest_ghostcloud_total_sites_sites_average{service="netdata-kvstore-qa-01"}) or max(netdata_sites_number_average{chart="manifest_Manifest_Network.sites",many_chain="manifest-web-alpha"}))[1d:5m])
       - record: blockchain_blocks
