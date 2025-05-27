@@ -63,6 +63,8 @@ REVOKE EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) FROM PUBLIC, web_anon;
 GRANT EXECUTE ON FUNCTION api.add_excluded_address(TEXT) TO writer;
 GRANT EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) TO writer;
 
+-- Return all metrics from the `common` schema
+-- Those are metrics that are common to the entire Manifest network
 CREATE OR REPLACE FUNCTION api.get_all_latest_common_metrics()
   RETURNS TABLE(
     table_name  TEXT,
@@ -95,6 +97,132 @@ $$;
 
 GRANT EXECUTE
   ON FUNCTION api.get_all_latest_common_metrics()
+  TO web_anon;
+
+-- Return all metrics from the `testnet` schema
+-- Those are metrics that are specific to the Manifest Ledger testnet
+CREATE OR REPLACE FUNCTION api.get_all_latest_testnet_metrics()
+  RETURNS TABLE(
+    table_name    TEXT,
+    "timestamp"   TIMESTAMPTZ,
+    "value"       TEXT
+  )
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = testnet, internal, public
+AS $$
+DECLARE
+  sql TEXT;
+BEGIN
+  SELECT string_agg(
+           format(
+             '(SELECT %L AS table_name, time, value::TEXT FROM testnet.%I ORDER BY time DESC LIMIT 1)',
+             t.table_name,
+             t.table_name
+           ),
+           E'\nUNION ALL\n'
+         )
+    INTO sql
+    FROM information_schema.tables AS t
+   WHERE t.table_schema = 'testnet'
+     AND t.table_type   = 'BASE TABLE';
+
+  RETURN QUERY EXECUTE sql;
+END;
+$$;
+
+GRANT EXECUTE
+  ON FUNCTION api.get_all_latest_testnet_metrics()
+  TO web_anon;
+
+-- Return all metrics from the `mainnet` schema
+-- Those are metrics that are specific to the Manifest Ledger mainnet
+CREATE OR REPLACE FUNCTION api.get_all_latest_mainnet_metrics()
+  RETURNS TABLE(
+    table_name    TEXT,
+    "timestamp"   TIMESTAMPTZ,
+    "value"       TEXT
+  )
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = mainnet, internal, public
+AS $$
+DECLARE
+  sql TEXT;
+BEGIN
+  SELECT string_agg(
+           format(
+             '(SELECT %L AS table_name, time, value::TEXT FROM mainnet.%I ORDER BY time DESC LIMIT 1)',
+             t.table_name,
+             t.table_name
+           ),
+           E'\nUNION ALL\n'
+         )
+    INTO sql
+    FROM information_schema.tables AS t
+   WHERE t.table_schema = 'mainnet'
+     AND t.table_type   = 'BASE TABLE';
+
+  RETURN QUERY EXECUTE sql;
+END;
+$$;
+
+GRANT EXECUTE
+  ON FUNCTION api.get_all_latest_mainnet_metrics()
+  TO web_anon;
+
+-- Return the latest geo coordinates from the `common` schema
+CREATE OR REPLACE FUNCTION api.get_latest_geo_coordinates()
+RETURNS TABLE (
+    "latitude" DOUBLE PRECISION,
+    "longitude" DOUBLE PRECISION,
+    "country_name" TEXT,
+    "city" TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = common, internal, public
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH latest_latitude AS (
+        SELECT DISTINCT ON (tags->>'instance')
+            tags->>'instance' AS instance,
+            value AS latitude,
+            time
+        FROM manifest_geo_latitude
+        ORDER BY tags->>'instance', time DESC
+    ),
+    latest_longitude AS (
+        SELECT DISTINCT ON (tags->>'instance')
+            tags->>'instance' AS instance,
+            value AS longitude,
+            time
+        FROM manifest_geo_longitude
+        ORDER BY tags->>'instance', time DESC
+    ),
+    latest_geo_metadata AS (
+        SELECT DISTINCT ON (tags->>'instance')
+            tags->>'instance' AS instance,
+            tags->>'country_name' AS country_name,
+            tags->>'city' AS city,
+            time
+        FROM manifest_geo_metadata
+        ORDER BY tags->>'instance', time DESC
+    )
+    SELECT
+        llat.latitude,
+        llon.longitude,
+        lgi.country_name,
+        lgi.city
+    FROM latest_latitude llat
+    JOIN latest_longitude llon ON llat.instance = llon.instance
+    JOIN latest_geo_metadata lgi ON llat.instance = lgi.instance;
+END;
+$$;
+
+GRANT EXECUTE
+  ON FUNCTION api.get_latest_geo_coordinates()
   TO web_anon;
 
 COMMIT;
