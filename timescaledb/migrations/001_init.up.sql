@@ -105,6 +105,7 @@ CREATE OR REPLACE FUNCTION api.get_all_latest_testnet_metrics()
   RETURNS TABLE(
     table_name    TEXT,
     "timestamp"   TIMESTAMPTZ,
+    tags          JSONB,
     "value"       TEXT
   )
 LANGUAGE plpgsql
@@ -116,7 +117,19 @@ DECLARE
 BEGIN
   SELECT string_agg(
            format(
-             '(SELECT %L AS table_name, time, value::TEXT FROM testnet.%I ORDER BY time DESC LIMIT 1)',
+             $fmt$
+             (SELECT %L AS table_name,
+                  time,
+                  (
+                      SELECT COALESCE(jsonb_object_agg(key, value), '{}'::JSONB)
+                          FROM jsonb_each(tags) AS t(key, value)
+                          WHERE key IN ('supply')
+                  ) AS tags,
+                  value::TEXT
+              FROM testnet.%I
+              ORDER BY time DESC
+              LIMIT 1)
+             $fmt$,
              t.table_name,
              t.table_name
            ),
@@ -141,6 +154,7 @@ CREATE OR REPLACE FUNCTION api.get_all_latest_mainnet_metrics()
   RETURNS TABLE(
     table_name    TEXT,
     "timestamp"   TIMESTAMPTZ,
+    tags          JSONB,
     "value"       TEXT
   )
 LANGUAGE plpgsql
@@ -152,7 +166,19 @@ DECLARE
 BEGIN
   SELECT string_agg(
            format(
-             '(SELECT %L AS table_name, time, value::TEXT FROM mainnet.%I ORDER BY time DESC LIMIT 1)',
+             $fmt$
+             (SELECT %L AS table_name,
+                  time,
+                  (
+                      SELECT COALESCE(jsonb_object_agg(key, value), '{}'::JSONB)
+                          FROM jsonb_each(tags) AS t(key, value)
+                          WHERE key IN ('supply')
+                  ) AS tags,
+                  value::TEXT
+              FROM mainnet.%I
+              ORDER BY time DESC
+              LIMIT 1)
+             $fmt$,
              t.table_name,
              t.table_name
            ),
