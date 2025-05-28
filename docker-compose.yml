@@ -74,23 +74,6 @@ services:
     network_mode: host
     restart: no
 
-#  vmalert_backfill_1D:
-#    image: victoriametrics/vmalert:latest
-#    container_name: vmalert_backfill_1D
-#    depends_on:
-#      - telegraf
-#    volumes:
-#      - ./vmalert:/etc/vmalert/
-#      - ./scripts/vmalert-entrypoint.sh:/entrypoint.sh:ro
-#    entrypoint: /entrypoint.sh
-#    env_file: .env
-#    command:
-#      - '--rule=/etc/vmalert/backfill_1D.yml'
-#      - '--from=1 day ago'
-#      - '--to=1 minute ago'
-#    network_mode: host
-#    restart: no
-
 #  vmalert_backfill_forever:
 #    image: victoriametrics/vmalert:latest
 #    container_name: vmalert_backfill_forever
