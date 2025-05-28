@@ -1,9 +1,0 @@
-BEGIN;
-
-DROP FUNCTION IF EXISTS get_aggregated_metrics(VARCHAR, VARCHAR, TIMESTAMPTZ, TIMESTAMPTZ);
-DROP FUNCTION IF EXISTS get_latest_geo_coordinates();
-DROP FUNCTION IF EXISTS get_latest_values_from(TEXT[]);
-DROP FUNCTION IF EXISTS get_latest_total_supply();
-DROP FUNCTION IF EXISTS get_aggregated_total_supply(VARCHAR, TIMESTAMPTZ, TIMESTAMPTZ);
-
-COMMIT;
