@@ -70,7 +70,7 @@ services:
     command:
       - '--rule=/etc/vmalert/backfill_1W.yml'
       - '--from=1 week ago'
-      - '--to=1 days ago'
+      - '--to=1 day ago'
     network_mode: host
     restart: no
 
