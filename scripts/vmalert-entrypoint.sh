@@ -5,12 +5,14 @@ set -e
 apk add --update coreutils --no-cache
 
 FROM=""
+TO=""
 BINS=1
 VMALERT_ARGS=""
 
 while [ $# -gt 0 ]; do
   case $1 in
     --from=*) FROM="${1#*=}"; shift ;;
+    --to=*) TO="${1#*=}"; shift ;;
     --bins=*) BINS="${1#*=}"; shift ;;
     *) VMALERT_ARGS="${VMALERT_ARGS:+$VMALERT_ARGS }$1"; shift ;;
   esac
@@ -20,7 +22,8 @@ done
 
 # Compute epoch seconds for start and end
 FROM_SEC=$(date -u -d "$FROM 00:00:00" +%s)
-TO_SEC=$(date -u -d "$(date -u +%Y-%m-%d) 00:00:00" +%s)
+TO_SEC=$(date -u -d "$TO" +%s)
+#TO_SEC=$(date -u -d "$(date -u +%Y-%m-%d) 00:00:00" +%s)
 INTERVAL=$(( (TO_SEC - FROM_SEC) / BINS ))
 
 # initialize so first start is exactly FROM_SEC
