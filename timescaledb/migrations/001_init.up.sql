@@ -10,6 +10,7 @@ create schema internal;
 create schema IF not exists testnet;
 create schema IF not exists mainnet;
 create schema IF not exists common;
+create schema IF not exists cumsum;
 
 -- Anonymous role for web access
 create role web_anon nologin;
@@ -85,7 +86,7 @@ DECLARE
 BEGIN
   SELECT string_agg(
            format(
-             '(SELECT %L AS table_name, time, value::TEXT FROM common.%I ORDER BY time DESC LIMIT 1)',
+             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_%I)', -- api.latest_* views are defined in the Telegraf configuration
              t.table_name,
              t.table_name
            ),
@@ -122,19 +123,7 @@ DECLARE
 BEGIN
   SELECT string_agg(
            format(
-             $fmt$
-             (SELECT %L AS table_name,
-                  time,
-                  (
-                      SELECT COALESCE(jsonb_object_agg(key, value), '{}'::JSONB)
-                          FROM jsonb_each(tags) AS t(key, value)
-                          WHERE key IN ('supply')
-                  ) AS tags,
-                  value::TEXT
-              FROM testnet.%I
-              ORDER BY time DESC
-              LIMIT 1)
-             $fmt$,
+             '(SELECT %L AS table_name, "timestamp", tags, "value"::TEXT FROM api.latest_testnet_%I)', -- api.latest_testnet_* views are defined in the Telegraf configuration
              t.table_name,
              t.table_name
            ),
@@ -171,19 +160,7 @@ DECLARE
 BEGIN
   SELECT string_agg(
            format(
-             $fmt$
-             (SELECT %L AS table_name,
-                  time,
-                  (
-                      SELECT COALESCE(jsonb_object_agg(key, value), '{}'::JSONB)
-                          FROM jsonb_each(tags) AS t(key, value)
-                          WHERE key IN ('supply')
-                  ) AS tags,
-                  value::TEXT
-              FROM mainnet.%I
-              ORDER BY time DESC
-              LIMIT 1)
-             $fmt$,
+             '(SELECT %L AS table_name, "timestamp", tags, "value"::TEXT FROM api.latest_mainnet_%I)', -- api.latest_mainnet_* views are defined in the Telegraf configuration
              t.table_name,
              t.table_name
            ),
@@ -200,6 +177,41 @@ $$;
 
 GRANT EXECUTE
   ON FUNCTION api.get_all_latest_mainnet_metrics()
+  TO web_anon;
+
+-- Return all metrics from the `cumsum` schema
+CREATE OR REPLACE FUNCTION api.get_all_latest_cumsum_metrics()
+  RETURNS TABLE(
+    table_name  TEXT,
+    "timestamp" TIMESTAMPTZ,
+    "value"     TEXT
+  )
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = cumsum, internal, public
+AS $$
+DECLARE
+  sql TEXT;
+BEGIN
+  SELECT string_agg(
+           format(
+             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_cumsum_%I)', -- api.latest_cumsum_* views are defined in the Telegraf configuration
+             t.table_name,
+             t.table_name
+           ),
+           E'\nUNION ALL\n'
+         )
+    INTO sql
+    FROM information_schema.tables AS t
+   WHERE t.table_schema = 'cumsum'
+     AND t.table_type   = 'BASE TABLE';
+
+  RETURN QUERY EXECUTE sql;
+END;
+$$;
+
+GRANT EXECUTE
+  ON FUNCTION api.get_all_latest_cumsum_metrics()
   TO web_anon;
 
 -- Return the latest geo coordinates from the `common` schema

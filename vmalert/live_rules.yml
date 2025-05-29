@@ -1,7 +1,7 @@
 groups:
   - name: live
     concurrency: 4
-    interval: 10s
+    interval: 1m
     rules:
       - record: minio_used
         expr: max(sum(minio_bucket_usage_total_bytes{job="minio-stats"}) by (instance,server))
