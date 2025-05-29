@@ -12,3 +12,5 @@ groups:
         expr: sum(avg_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"sent",manifest_network="true"}[1d])) * -1 * 86400
       - record: system_network_received
         expr: sum(avg_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"received",manifest_network="true"}[1d])) * 86400
+      - record: decentralized_web_requests
+        expr: sum(avg_over_time(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"}[1d])) * 86400
