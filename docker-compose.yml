@@ -19,24 +19,6 @@ services:
     network_mode: host
     restart: unless-stopped
 #
-  vmalert_forever:
-    image: victoriametrics/vmalert:latest
-    container_name: vmalert_forever
-    depends_on:
-      - telegraf
-    volumes:
-      - ./vmalert:/etc/vmalert/
-    env_file: .env
-    command:
-      - '--remoteWrite.disablePathAppend'
-      - '--rule=/etc/vmalert/forever_live_rules.yml'
-      - '--remoteWrite.url=${TELEGRAF_URL}'
-      - '--datasource.url=${DATASOURCE_URL}'
-      - '--httpListenAddr=:8881'
-      - '--replay.maxDatapointsPerQuery=1'
-    network_mode: host
-    restart: no
-
   vmalert_backfill_1Y:
     image: victoriametrics/vmalert:latest
     container_name: vmalert_backfill_1Y
