@@ -19,26 +19,6 @@ services:
     network_mode: host
     restart: unless-stopped
 #
-#  vmalert_forever:
-#    image: victoriametrics/vmalert:latest
-#    container_name: vmalert_forever
-#    depends_on:
-#      - telegraf
-#    volumes:
-#      - ./vmalert:/etc/vmalert/
-#    env_file: .env
-#    command:
-#      - '--remoteWrite.disablePathAppend'
-#      - '--rule=/etc/vmalert/forever_live_rules.yml'
-#      - '--remoteWrite.showURL'
-#      - '--remoteWrite.url=${TELEGRAF_URL}'
-#      - '--datasource.showURL'
-#      - '--datasource.url=${DATASOURCE_URL}'
-#      - '--httpListenAddr=:8881'
-#      - '--replay.maxDatapointsPerQuery=1'
-#    network_mode: host
-#    restart: no
-#
   vmalert_backfill_1Y:
     image: victoriametrics/vmalert:latest
     container_name: vmalert_backfill_1Y
@@ -74,22 +54,24 @@ services:
     network_mode: host
     restart: no
 
-#  vmalert_backfill_forever:
-#    image: victoriametrics/vmalert:latest
-#    container_name: vmalert_backfill_forever
-#    depends_on:
-#      - telegraf
-#    volumes:
-#        - ./vmalert:/etc/vmalert/
-#        - ./scripts/vmalert-entrypoint.sh:/entrypoint.sh:ro
-#    entrypoint: /entrypoint.sh
-#    env_file: .env
-#    # The `manifest_network="true"` label was introduced on 10 May 2023.
-#    command:
-#      - '--rule=/etc/vmalert/backfill_forever.yml'
-#      - '--from=10 May. 2023'
-#    network_mode: host
-#    restart: no
+  vmalert_backfill_forever:
+    image: victoriametrics/vmalert:latest
+    container_name: vmalert_backfill_forever
+    depends_on:
+      - telegraf
+    volumes:
+        - ./vmalert:/etc/vmalert/
+        - ./scripts/vmalert-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: /entrypoint.sh
+    env_file: .env
+    # The `manifest_network="true"` label was introduced on 10 May 2023.
+    command:
+      - '--rule=/etc/vmalert/backfill_forever.yml'
+      - '--from=10 May. 2023'
+      - '--to=1 day ago'
+      - '--bins=25'
+    network_mode: host
+    restart: no
 
   telegraf:
     image: telegraf:latest

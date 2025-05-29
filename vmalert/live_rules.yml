@@ -1,7 +1,7 @@
 groups:
   - name: live
     concurrency: 4
-    interval: 10s
+    interval: 1m
     rules:
       - record: minio_used
         expr: max(sum(minio_bucket_usage_total_bytes{job="minio-stats"}) by (instance,server))
@@ -93,3 +93,16 @@ groups:
         expr: topk(1,sum(minio_bucket_usage_object_total{job="minio-stats"}) by (instance))
       - record: minio_buckets
         expr: count(count by(bucket)(minio_bucket_usage_total_bytes{job="minio-stats"}))
+
+      - record: web_requests
+        expr: sum(avg_over_time(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{manifest_network="true"}[1m])) * 60
+      - record: system_tcp_sent
+        expr: sum(avg_over_time(netdata_ipv4_tcppackets_packets_persec_average{manifest_network="true",dimension="sent"}[1m])) * -1 * 60
+      - record: system_tcp_received
+        expr: sum(avg_over_time(netdata_ipv4_tcppackets_packets_persec_average{manifest_network="true",dimension="received"}[1m])) * 60
+      - record: system_network_sent
+        expr: sum(avg_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"sent",manifest_network="true"}[1m])) * -1 * 60
+      - record: system_network_received
+        expr: sum(avg_over_time(netdata_system_ip_kilobits_persec_average{dimension=~"received",manifest_network="true"}[1m])) * 60
+      - record: decentralized_web_requests
+        expr: sum(avg_over_time(netdata_prometheus_nginx_exporter_local_nginx_http_requests_total_requests_persec_average{job="netdata-cdn-prod-web"}[1m])) * 60
