@@ -92,3 +92,5 @@ groups:
         expr: topk(1, sum(avg_over_time(minio_bucket_usage_object_total{job="minio-stats"}[1d])) by (instance))
       - record: minio_buckets
         expr: count(count by (bucket) (last_over_time(minio_bucket_usage_total_bytes{job="minio-stats"}[1d])))
+      - record: talib_mfx_power_conversion
+        expr: last_over_time(talib_mfx_power_conversion[1d])
