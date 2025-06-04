@@ -23,7 +23,6 @@ done
 # Compute epoch seconds for start and end
 FROM_SEC=$(date -u -d "$FROM 00:00:00" +%s)
 TO_SEC=$(date -u -d "$TO" +%s)
-#TO_SEC=$(date -u -d "$(date -u +%Y-%m-%d) 00:00:00" +%s)
 INTERVAL=$(( (TO_SEC - FROM_SEC) / BINS ))
 
 # initialize so first start is exactly FROM_SEC
@@ -42,10 +41,19 @@ for i in $(seq 0 $((BINS - 1))); do
     END_SEC=$((START_SEC + INTERVAL))
   fi
 
+  if [ "$END_SEC" -gt "$TO_SEC" ]; then
+    END_SEC="$TO_SEC"
+  fi
+
+  if [ "$START_SEC" -gt "$END_SEC" ]; then
+    continue
+  fi
+
   last_end_sec=$END_SEC
 
   DATE_FROM=$(date -u -d "@$START_SEC" "+%Y-%m-%d")
   DATE_TO=$(date -u -d "@$END_SEC"   "+%Y-%m-%d")
+
   TIME_FROM="${DATE_FROM}T00:00:00Z"
   TIME_TO="${DATE_TO}T00:00:00Z"
 
