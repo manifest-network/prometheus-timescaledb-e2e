@@ -24,15 +24,15 @@ groups:
       - record: manifest_geo_longitude
         expr: netdata_prometheus_custom_exporter_local_manifest_geo_longitude_longitude_average
       - record: manifest_tokenomics_denom_metadata
-        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_denom_metadata_metadata_average{manifest_app="validator",manifest_tier="mainnet"}
+        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_denom_metadata_metadata_average{manifest_app="archive",manifest_tier="mainnet"}
       - record: manifest_tokenomics_denom_metadata
         expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_denom_metadata_metadata_average{manifest_app="validator",manifest_tier="testnet"}
       - record: manifest_tokenomics_token_count
-        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_token_count_token_average{manifest_app="validator",manifest_tier="mainnet"}
+        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_token_count_token_average{manifest_app="archive",manifest_tier="mainnet"}
       - record: manifest_tokenomics_token_count
         expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_token_count_token_average{manifest_app="validator",manifest_tier="testnet"}
       - record: manifest_tokenomics_total_supply
-        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_total_supply_supply_average{manifest_app="validator",manifest_tier="mainnet"}
+        expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_total_supply_supply_average{manifest_app="archive",manifest_tier="mainnet"}
       - record: manifest_tokenomics_total_supply
         expr: netdata_prometheus_custom_exporter_local_manifest_tokenomics_total_supply_supply_average{manifest_app="validator",manifest_tier="testnet"}
       - record: total_unique_user
