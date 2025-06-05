@@ -11,6 +11,7 @@ create schema IF not exists testnet;
 create schema IF not exists mainnet;
 create schema IF not exists common;
 create schema IF not exists cumsum;
+create schema IF not exists geo;
 
 -- Anonymous role for web access
 create role web_anon nologin;
@@ -214,54 +215,106 @@ GRANT EXECUTE
   ON FUNCTION api.get_all_latest_cumsum_metrics()
   TO web_anon;
 
--- Return the latest geo coordinates from the `common` schema
+-- Pre-create the geo coordinates tables in the `common` schema
+-- This allow additional optimizations for the geo coordinates queries
+CREATE TABLE IF NOT EXISTS geo.manifest_geo_latitude (
+  time  TIMESTAMPTZ NOT NULL,
+  tags  JSONB          NOT NULL,
+  value DOUBLE PRECISION,
+  PRIMARY KEY (time, tags)
+);
+
+SELECT create_hypertable(
+  'geo.manifest_geo_latitude',
+  'time',
+  if_not_exists => TRUE
+);
+
+SELECT add_retention_policy('geo.manifest_geo_latitude', INTERVAL '1 year');
+
+CREATE TABLE IF NOT EXISTS geo.manifest_geo_longitude (
+  time  TIMESTAMPTZ NOT NULL,
+  tags  JSONB          NOT NULL,
+  value DOUBLE PRECISION,
+  PRIMARY KEY (time, tags)
+);
+
+SELECT create_hypertable(
+  'geo.manifest_geo_longitude',
+  'time',
+  if_not_exists => TRUE
+);
+
+SELECT add_retention_policy('geo.manifest_geo_longitude', INTERVAL '1 year');
+
+CREATE TABLE IF NOT EXISTS geo.manifest_geo_metadata (
+  time  TIMESTAMPTZ NOT NULL,
+  tags  JSONB          NOT NULL,
+  value DOUBLE PRECISION,
+  PRIMARY KEY (time, tags)
+);
+
+SELECT create_hypertable(
+  'geo.manifest_geo_metadata',
+  'time',
+  if_not_exists => TRUE
+);
+
+SELECT add_retention_policy('geo.manifest_geo_metadata', INTERVAL '1 year');
+
+-- Create indexes on the geo coordinates tables
+CREATE INDEX ON geo.manifest_geo_latitude (( (tags ->> 'instance') ), time DESC);
+CREATE INDEX ON geo.manifest_geo_longitude (( (tags ->> 'instance') ), time DESC);
+CREATE INDEX ON geo.manifest_geo_metadata (( (tags ->> 'instance') ), time DESC);
+
+-- Return the latest geo coordinates from the `geo` schema
 CREATE OR REPLACE FUNCTION api.get_latest_geo_coordinates()
 RETURNS TABLE (
-    "latitude" DOUBLE PRECISION,
-    "longitude" DOUBLE PRECISION,
-    "country_name" TEXT,
-    "city" TEXT
+  latitude      DOUBLE PRECISION,
+  longitude     DOUBLE PRECISION,
+  country_name  TEXT,
+  city          TEXT
 )
-LANGUAGE plpgsql
+LANGUAGE sql
 SECURITY DEFINER
-SET search_path = common, internal, public
+SET search_path = geo, internal, public
 AS $$
-BEGIN
-    RETURN QUERY
-    WITH latest_latitude AS (
-        SELECT DISTINCT ON (tags->>'instance')
-            tags->>'instance' AS instance,
-            value AS latitude,
-            time
-        FROM manifest_geo_latitude
-        ORDER BY tags->>'instance', time DESC
-    ),
-    latest_longitude AS (
-        SELECT DISTINCT ON (tags->>'instance')
-            tags->>'instance' AS instance,
-            value AS longitude,
-            time
-        FROM manifest_geo_longitude
-        ORDER BY tags->>'instance', time DESC
-    ),
-    latest_geo_metadata AS (
-        SELECT DISTINCT ON (tags->>'instance')
-            tags->>'instance' AS instance,
-            tags->>'country_name' AS country_name,
-            tags->>'city' AS city,
-            time
-        FROM manifest_geo_metadata
-        ORDER BY tags->>'instance', time DESC
-    )
-    SELECT
-        llat.latitude,
-        llon.longitude,
-        lgi.country_name,
-        lgi.city
-    FROM latest_latitude llat
-    JOIN latest_longitude llon ON llat.instance = llon.instance
-    JOIN latest_geo_metadata lgi ON llat.instance = lgi.instance;
-END;
+WITH
+  latest_latitude AS (
+    SELECT DISTINCT ON (tags ->> 'instance')
+      (tags ->> 'instance') AS instance,
+      value::DOUBLE PRECISION AS latitude,
+      time
+    FROM   manifest_geo_latitude
+    ORDER  BY (tags ->> 'instance'), time DESC
+  ),
+  latest_longitude AS (
+    SELECT DISTINCT ON (tags ->> 'instance')
+      (tags ->> 'instance') AS instance,
+      value::DOUBLE PRECISION AS longitude,
+      time
+    FROM   manifest_geo_longitude
+    ORDER  BY (tags ->> 'instance'), time DESC
+  ),
+  latest_geo_metadata AS (
+    SELECT DISTINCT ON (tags ->> 'instance')
+      (tags ->> 'instance')    AS instance,
+      (tags ->> 'country_name') AS country_name,
+      (tags ->> 'city')         AS city,
+      time
+    FROM   manifest_geo_metadata
+    ORDER  BY (tags ->> 'instance'), time DESC
+  )
+SELECT
+  llat.latitude,
+  llon.longitude,
+  lmeta.country_name,
+  lmeta.city
+FROM  latest_latitude  AS llat
+JOIN  latest_longitude AS llon
+  ON llat.instance = llon.instance
+JOIN  latest_geo_metadata AS lmeta
+  ON llat.instance = lmeta.instance;
 $$;
 
 GRANT EXECUTE
