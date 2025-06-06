@@ -94,3 +94,7 @@ groups:
         expr: count(count by (bucket) (last_over_time(minio_bucket_usage_total_bytes{job="minio-stats"}[1d])))
       - record: talib_mfx_power_conversion
         expr: last_over_time(talib_mfx_power_conversion[1d])
+      - record: manifest_tokenomics_excluded_supply
+        expr: last_over_time(netdata_prometheus_mqtt_blackbox_exporter_local_manifest_tokenomics_excluded_supply_supply_average{manifest_tier="testnet", manifest_app="validator"}[1d])
+      - record: manifest_tokenomics_excluded_supply
+        expr: last_over_time(netdata_prometheus_mqtt_blackbox_exporter_local_manifest_tokenomics_excluded_supply_supply_average{manifest_tier="mainnet", manifest_app="archive"}[1d])
