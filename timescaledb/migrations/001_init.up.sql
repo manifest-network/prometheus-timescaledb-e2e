@@ -1,19 +1,12 @@
 BEGIN;
 
 -- The public schema
-create schema api;
+create schema if not exists api;
 
 -- Internal schema
-create schema internal;
+create schema if not exists internal;
 
--- Per-network schema
-create schema IF not exists testnet;
-create schema IF not exists mainnet;
-create schema IF not exists common;
-create schema IF not exists cumsum;
 create schema IF not exists geo;
-create schema IF not exists tmp_testnet;
-create schema IF not exists tmp_mainnet;
 
 -- Anonymous role for web access
 create role web_anon nologin;
@@ -71,149 +64,6 @@ REVOKE EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) FROM PUBLIC, web_anon;
 -- Grant execute permissions to the writer role
 GRANT EXECUTE ON FUNCTION api.add_excluded_address(TEXT) TO writer;
 GRANT EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) TO writer;
-
--- Return all metrics from the `common` schema
--- Those are metrics that are common to the entire Manifest network
-CREATE OR REPLACE FUNCTION api.get_all_latest_common_metrics()
-  RETURNS TABLE(
-    table_name  TEXT,
-    "timestamp" TIMESTAMPTZ,
-    "value"     TEXT
-  )
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = common, internal, public
-AS $$
-DECLARE
-  sql TEXT;
-BEGIN
-  SELECT string_agg(
-           format(
-             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_%I)', -- api.latest_* views are defined in the Telegraf configuration
-             t.table_name,
-             t.table_name
-           ),
-           E'\nUNION ALL\n'
-         )
-    INTO sql
-    FROM information_schema.tables AS t
-   WHERE t.table_schema = 'common'
-     AND t.table_type   = 'BASE TABLE';
-
-  RETURN QUERY EXECUTE sql;
-END;
-$$;
-
-GRANT EXECUTE
-  ON FUNCTION api.get_all_latest_common_metrics()
-  TO web_anon;
-
--- Return all metrics from the `testnet` schema
--- Those are metrics that are specific to the Manifest Ledger testnet
-CREATE OR REPLACE FUNCTION api.get_all_latest_testnet_metrics()
-  RETURNS TABLE(
-    table_name    TEXT,
-    "timestamp"   TIMESTAMPTZ,
-    "value"       TEXT
-  )
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = testnet, internal, public
-AS $$
-DECLARE
-  sql TEXT;
-BEGIN
-  SELECT string_agg(
-           format(
-             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_testnet_%I)', -- api.latest_testnet_* views are defined in the Telegraf configuration
-             t.table_name,
-             t.table_name
-           ),
-           E'\nUNION ALL\n'
-         )
-    INTO sql
-    FROM information_schema.tables AS t
-   WHERE t.table_schema = 'testnet'
-     AND t.table_type   = 'BASE TABLE';
-
-  RETURN QUERY EXECUTE sql;
-END;
-$$;
-
-GRANT EXECUTE
-  ON FUNCTION api.get_all_latest_testnet_metrics()
-  TO web_anon;
-
--- Return all metrics from the `mainnet` schema
--- Those are metrics that are specific to the Manifest Ledger mainnet
-CREATE OR REPLACE FUNCTION api.get_all_latest_mainnet_metrics()
-  RETURNS TABLE(
-    table_name    TEXT,
-    "timestamp"   TIMESTAMPTZ,
-    "value"       TEXT
-  )
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = mainnet, internal, public
-AS $$
-DECLARE
-  sql TEXT;
-BEGIN
-  SELECT string_agg(
-           format(
-             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_mainnet_%I)', -- api.latest_mainnet_* views are defined in the Telegraf configuration
-             t.table_name,
-             t.table_name
-           ),
-           E'\nUNION ALL\n'
-         )
-    INTO sql
-    FROM information_schema.tables AS t
-   WHERE t.table_schema = 'mainnet'
-     AND t.table_type   = 'BASE TABLE';
-
-  RETURN QUERY EXECUTE sql;
-END;
-$$;
-
-GRANT EXECUTE
-  ON FUNCTION api.get_all_latest_mainnet_metrics()
-  TO web_anon;
-
--- Return all metrics from the `cumsum` schema
-CREATE OR REPLACE FUNCTION api.get_all_latest_cumsum_metrics()
-  RETURNS TABLE(
-    table_name  TEXT,
-    "timestamp" TIMESTAMPTZ,
-    "value"     TEXT
-  )
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = cumsum, internal, public
-AS $$
-DECLARE
-  sql TEXT;
-BEGIN
-  SELECT string_agg(
-           format(
-             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_cumsum_%I)', -- api.latest_cumsum_* views are defined in the Telegraf configuration
-             t.table_name,
-             t.table_name
-           ),
-           E'\nUNION ALL\n'
-         )
-    INTO sql
-    FROM information_schema.tables AS t
-   WHERE t.table_schema = 'cumsum'
-     AND t.table_type   = 'BASE TABLE';
-
-  RETURN QUERY EXECUTE sql;
-END;
-$$;
-
-GRANT EXECUTE
-  ON FUNCTION api.get_all_latest_cumsum_metrics()
-  TO web_anon;
 
 -- Pre-create the geo coordinates tables in the `common` schema
 -- This allow additional optimizations for the geo coordinates queries
@@ -319,6 +169,369 @@ $$;
 
 GRANT EXECUTE
   ON FUNCTION api.get_latest_geo_coordinates()
+  TO web_anon;
+
+-- Initialize the metrics tables and functions for each network
+-- Regular metrics, i.e., those that are not cumulative
+CREATE OR REPLACE FUNCTION internal.initialize_metric(
+  p_metric_name TEXT,
+  p_network TEXT)
+RETURNS VOID AS $outer$
+BEGIN
+  EXECUTE format('create schema IF not exists %I', p_network);
+  EXECUTE format(
+    $fmt$
+      CREATE TABLE IF NOT EXISTS %I.%I (
+        "time" TIMESTAMPTZ NOT NULL,
+        "tags" JSONB NOT NULL,
+        "value" NUMERIC,
+        PRIMARY KEY (time, tags)
+      )
+    $fmt$, p_network, p_metric_name
+  );
+
+  EXECUTE format(
+    $fmt$
+      SELECT create_hypertable('%I.%I', 'time', if_not_exists => TRUE)
+    $fmt$, p_network, p_metric_name
+  );
+
+  EXECUTE format(
+    $fmt$
+      SELECT add_retention_policy('%I.%I', INTERVAL '1 year')
+    $fmt$, p_network, p_metric_name
+  );
+
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE FUNCTION api.get_%I_agg_%I (
+        p_interval INTERVAL,
+        p_from TIMESTAMPTZ,
+        p_to TIMESTAMPTZ
+    )
+    RETURNS TABLE (
+        "timestamp" TIMESTAMPTZ,
+        "value"     TEXT
+    )
+    LANGUAGE plpgsql
+    STRICT
+    SECURITY DEFINER
+    SET search_path = %I, internal, public
+    AS $body$
+    BEGIN
+      -- Ensure p_from is less than or equal to p_to
+      IF p_from > p_to THEN
+        RAISE EXCEPTION 'p_from must be less than or equal to p_to';
+      END IF;
+
+      -- Ensure p_interval is a positive interval
+      IF  p_interval <= INTERVAL '0' THEN
+        RAISE EXCEPTION 'p_interval must be a positive interval';
+      END IF;
+
+      -- Ensure p_interval is not larger than the time range
+      IF p_interval > (p_to - p_from) THEN
+        RAISE EXCEPTION 'p_interval must not be larger than the time range between p_from and p_to';
+      END IF;
+
+      RETURN QUERY
+      SELECT
+          time_bucket(p_interval, d.time)   AS "timestamp",
+          max(d.value)::TEXT                AS "value"
+      FROM %I.%I as d
+      WHERE d.time >= p_from AND d.time <= p_to
+      GROUP BY 1
+      ORDER BY 1 DESC;
+    END;
+    $body$;
+    $func$, p_network, p_metric_name, p_network, p_network, p_metric_name
+  );
+  EXECUTE format('GRANT EXECUTE ON FUNCTION api.get_%I_agg_%I(interval, timestamptz, timestamptz) TO web_anon;', p_network, p_metric_name);
+
+  EXECUTE format(
+    $func$
+      CREATE OR REPLACE VIEW api.latest_%I_%I AS
+      SELECT
+        d.time         AS "timestamp",
+        d.value::TEXT  AS "value"
+      FROM %I.%I as d
+      ORDER BY d.time DESC
+      LIMIT 1;
+    $func$, p_network, p_metric_name, p_network, p_metric_name
+  );
+  EXECUTE format('GRANT SELECT ON api.latest_%I_%I TO web_anon;', p_network, p_metric_name);
+END;
+$outer$ LANGUAGE plpgsql;
+
+-- Initialize the cumulative sum metrics
+-- These metrics are used to calculate cumulative values over time, not regular metrics
+CREATE OR REPLACE FUNCTION internal.initialize_cumsum_metric(p_metric_name TEXT)
+RETURNS VOID AS $outer$
+BEGIN
+  EXECUTE format('create schema IF not exists cumsum');
+  EXECUTE format(
+    $fmt$
+      CREATE TABLE IF NOT EXISTS cumsum.%I (
+        "time" TIMESTAMPTZ NOT NULL,
+        "tags" JSONB NOT NULL,
+        "value" NUMERIC,
+        PRIMARY KEY (time, tags)
+      )
+    $fmt$, p_metric_name
+  );
+
+  EXECUTE format(
+    $fmt$
+      SELECT create_hypertable('cumsum.%I', 'time', if_not_exists => TRUE)
+    $fmt$, p_metric_name
+  );
+
+  EXECUTE format(
+    $fmt$
+      SELECT add_retention_policy('cumsum.%I', INTERVAL '1 year')
+    $fmt$, p_metric_name
+  );
+
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE FUNCTION api.get_cumsum_agg_%I (
+        p_interval INTERVAL,
+        p_from TIMESTAMPTZ,
+        p_to TIMESTAMPTZ
+    )
+    RETURNS TABLE (
+        "timestamp" TIMESTAMPTZ,
+        "value"     TEXT
+    )
+    LANGUAGE plpgsql
+    STRICT
+    SECURITY DEFINER
+    SET search_path = cumsum, internal, public
+    AS $body$
+    BEGIN
+      -- Ensure p_from is less than or equal to p_to
+      IF p_from > p_to THEN
+        RAISE EXCEPTION 'p_from must be less than or equal to p_to';
+      END IF;
+
+      -- Ensure p_interval is a positive interval
+      IF  p_interval <= INTERVAL '0' THEN
+        RAISE EXCEPTION 'p_interval must be a positive interval';
+      END IF;
+
+      -- Ensure p_interval is not larger than the time range
+      IF p_interval > (p_to - p_from) THEN
+        RAISE EXCEPTION 'p_interval must not be larger than the time range between p_from and p_to';
+      END IF;
+
+      RETURN QUERY
+      WITH raw AS (
+        SELECT
+          d.time as "time",
+          SUM(sum(d.value)) OVER (ORDER BY time) AS cumulative
+        FROM cumsum.%I as d
+        GROUP BY d.time
+      ),
+      filtered AS (
+        SELECT *
+        FROM raw
+        WHERE time >= p_from AND time <= p_to
+      ),
+      bucketed AS (
+        SELECT
+          time_bucket(p_interval, time) AS ts,
+          MAX(cumulative)               AS mc
+        FROM filtered
+        GROUP BY ts
+      )
+      SELECT
+        ts as "timestamp",
+        mc::TEXT as "value"
+      FROM bucketed
+      ORDER BY ts;
+    END;
+    $body$;
+    $func$, p_metric_name, p_metric_name
+  );
+  EXECUTE format('GRANT EXECUTE ON FUNCTION api.get_cumsum_agg_%I(interval, timestamptz, timestamptz) TO web_anon;', p_metric_name);
+
+  EXECUTE format(
+    $func$
+      CREATE OR REPLACE VIEW api.latest_cumsum_%I AS
+      SELECT
+        d.time         AS "timestamp",
+        d.value::TEXT  AS "value"
+      FROM cumsum.%I as d
+      ORDER BY d.time DESC
+      LIMIT 1;
+    $func$, p_metric_name, p_metric_name
+  );
+  EXECUTE format('GRANT SELECT ON api.latest_cumsum_%I TO web_anon;', p_metric_name);
+END;
+$outer$ LANGUAGE plpgsql;
+
+-- Workaround for https://github.com/jackc/pgx/issues/1362
+-- Telegraf still uses `pgx` v4
+--
+-- Initialize supply continuous aggregates and retention policies
+DO
+$outer$
+DECLARE
+  rec RECORD;
+BEGIN
+FOR rec IN (
+  VALUES
+    ('manifest_tokenomics_total_supply', 'testnet'),
+    ('manifest_tokenomics_excluded_supply', 'testnet'),
+    ('locked_tokens', 'testnet'),
+    ('manifest_tokenomics_total_supply', 'mainnet'),
+    ('manifest_tokenomics_excluded_supply', 'mainnet'),
+    ('locked_tokens', 'mainnet')
+) LOOP
+  PERFORM internal.initialize_metric(rec.column1, rec.column2);
+  EXECUTE format('create schema IF not exists tmp_%I', rec.column2);
+  EXECUTE format('CREATE TABLE IF NOT EXISTS tmp_%I.%I ("time" TIMESTAMPTZ, "tags" JSONB, "value" TEXT, PRIMARY KEY (time, tags))', rec.column2, rec.column1);
+  EXECUTE format(
+    $func$
+      SELECT create_hypertable('tmp_%I.%I', 'time', if_not_exists => TRUE)
+    $func$, rec.column2, rec.column1
+  );
+  EXECUTE format(
+    $func$
+      SELECT add_retention_policy('tmp_%I.%I', INTERVAL '1 day')
+    $func$, rec.column2, rec.column1
+  );
+
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE FUNCTION api.tmp_to_%I_%I()
+    RETURNS trigger AS $$
+    BEGIN
+    INSERT INTO %I.%I(time, tags, value)
+      VALUES (NEW.time, NEW.tags, NEW.value::NUMERIC)
+    ON CONFLICT (time, tags)
+      DO UPDATE SET value = EXCLUDED.value;
+    RETURN NEW;
+    END;
+    $$
+    LANGUAGE plpgsql;
+    $func$, rec.column2, rec.column1, rec.column2, rec.column1
+  );
+
+  EXECUTE format(
+    'CREATE TRIGGER trg_tmp_to_%I_%I AFTER INSERT ON tmp_%I.%I FOR EACH ROW EXECUTE FUNCTION api.tmp_to_%I_%I();',
+    rec.column2, rec.column1, rec.column2, rec.column1, rec.column2, rec.column1
+  );
+
+  EXECUTE format(
+    $func$
+    CREATE MATERIALIZED VIEW IF NOT EXISTS %I.cagg_%I
+      WITH (timescaledb.continuous)
+    AS
+      SELECT
+        time_bucket('1 day', d.time)        AS "timestamp",
+        max(d.value::NUMERIC)               AS "value"
+      FROM %I.%I as d
+      GROUP BY 1
+    WITH NO DATA;
+    $func$, rec.column2, rec.column1, rec.column2, rec.column1
+  );
+
+  EXECUTE format(
+    $func$
+    SELECT add_continuous_aggregate_policy(
+      '%I.cagg_%I',
+      start_offset      => INTERVAL '30 days',
+      end_offset        => INTERVAL '1 hour',
+      schedule_interval => INTERVAL '1 minutes'
+    );
+    $func$, rec.column2, rec.column1
+  );
+
+END LOOP;
+END;
+$outer$;
+
+-- Create functions for testnet, mainnet, cumsum, and common schemas to get the latest metrics
+DO
+$outer$
+DECLARE
+  rec RECORD;
+BEGIN
+FOR rec IN (
+  VALUES
+    ('testnet'),
+    ('mainnet'),
+    ('cumsum'),
+    ('common')
+) LOOP
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE FUNCTION api.get_all_latest_%I_metrics()
+      RETURNS TABLE(
+        table_name    TEXT,
+        "timestamp"   TIMESTAMPTZ,
+        "value"       TEXT
+      )
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = %I, internal, public
+    AS $body$
+    DECLARE
+      sql TEXT;
+    BEGIN
+      SELECT string_agg(
+               format(
+                 '(SELECT %%L AS table_name, "timestamp", "value"::TEXT FROM api.latest_%I_%%I)',
+                 t.table_name,
+                 t.table_name
+               ),
+               E'\nUNION ALL\n'
+             )
+        INTO sql
+        FROM information_schema.tables AS t
+       WHERE t.table_schema = '%I'
+         AND t.table_type   = 'BASE TABLE';
+
+      RETURN QUERY EXECUTE sql;
+    END;
+    $body$
+    $func$, rec.column1, rec.column1, rec.column1, rec.column1
+  );
+
+  EXECUTE format('GRANT EXECUTE ON FUNCTION api.get_all_latest_%I_metrics() TO web_anon;', rec.column1);
+END LOOP;
+END;
+$outer$;
+
+-- Return the latest circulating supply for the testnet
+CREATE OR REPLACE FUNCTION api.get_testnet_circulating_supply(
+  p_start TIMESTAMPTZ,
+  p_end   TIMESTAMPTZ
+)
+RETURNS TABLE (
+  "timestamp" TIMESTAMPTZ,
+  "value"     NUMERIC
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = testnet, internal, public
+AS $$
+BEGIN
+  RETURN QUERY
+    SELECT
+      t."timestamp",
+      t."value" - COALESCE(e."value", 0)
+    FROM cagg_manifest_tokenomics_total_supply   AS t
+    LEFT JOIN cagg_manifest_tokenomics_excluded_supply AS e
+      USING ("timestamp")
+    WHERE t."timestamp" BETWEEN p_start AND p_end
+    ORDER BY 1 DESC;
+END;
+$$;
+
+GRANT EXECUTE
+  ON FUNCTION api.get_testnet_circulating_supply(TIMESTAMPTZ, TIMESTAMPTZ)
   TO web_anon;
 
 COMMIT;
