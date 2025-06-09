@@ -55,6 +55,10 @@ groups:
         expr: yaci_transactions_total_count{manifest_chain="manifest-ledger-mainnet"}
       - record: total_tx_count
         expr: yaci_transactions_total_count{manifest_chain="manifest-ledger-testnet"}
+      - record: locked_tokens
+        expr: yaci_locked_tokens_count{manifest_chain="manifest-ledger-mainnet"}
+      - record: locked_tokens
+        expr: yaci_locked_tokens_count{manifest_chain="manifest-ledger-testnet"}
       - record: node_count
         expr: count(up{manifest_network="true",metric_source="netdata"})
       - record: web_requests_per_sec

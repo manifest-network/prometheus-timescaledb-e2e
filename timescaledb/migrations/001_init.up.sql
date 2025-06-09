@@ -12,6 +12,8 @@ create schema IF not exists mainnet;
 create schema IF not exists common;
 create schema IF not exists cumsum;
 create schema IF not exists geo;
+create schema IF not exists tmp_testnet;
+create schema IF not exists tmp_mainnet;
 
 -- Anonymous role for web access
 create role web_anon nologin;
@@ -112,7 +114,6 @@ CREATE OR REPLACE FUNCTION api.get_all_latest_testnet_metrics()
   RETURNS TABLE(
     table_name    TEXT,
     "timestamp"   TIMESTAMPTZ,
-    tags          JSONB,
     "value"       TEXT
   )
 LANGUAGE plpgsql
@@ -124,7 +125,7 @@ DECLARE
 BEGIN
   SELECT string_agg(
            format(
-             '(SELECT %L AS table_name, "timestamp", tags, "value"::TEXT FROM api.latest_testnet_%I)', -- api.latest_testnet_* views are defined in the Telegraf configuration
+             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_testnet_%I)', -- api.latest_testnet_* views are defined in the Telegraf configuration
              t.table_name,
              t.table_name
            ),
@@ -149,7 +150,6 @@ CREATE OR REPLACE FUNCTION api.get_all_latest_mainnet_metrics()
   RETURNS TABLE(
     table_name    TEXT,
     "timestamp"   TIMESTAMPTZ,
-    tags          JSONB,
     "value"       TEXT
   )
 LANGUAGE plpgsql
@@ -161,7 +161,7 @@ DECLARE
 BEGIN
   SELECT string_agg(
            format(
-             '(SELECT %L AS table_name, "timestamp", tags, "value"::TEXT FROM api.latest_mainnet_%I)', -- api.latest_mainnet_* views are defined in the Telegraf configuration
+             '(SELECT %L AS table_name, "timestamp", "value"::TEXT FROM api.latest_mainnet_%I)', -- api.latest_mainnet_* views are defined in the Telegraf configuration
              t.table_name,
              t.table_name
            ),
@@ -220,7 +220,7 @@ GRANT EXECUTE
 CREATE TABLE IF NOT EXISTS geo.manifest_geo_latitude (
   time  TIMESTAMPTZ NOT NULL,
   tags  JSONB          NOT NULL,
-  value DOUBLE PRECISION,
+  value NUMERIC,
   PRIMARY KEY (time, tags)
 );
 
@@ -235,7 +235,7 @@ SELECT add_retention_policy('geo.manifest_geo_latitude', INTERVAL '1 year');
 CREATE TABLE IF NOT EXISTS geo.manifest_geo_longitude (
   time  TIMESTAMPTZ NOT NULL,
   tags  JSONB          NOT NULL,
-  value DOUBLE PRECISION,
+  value NUMERIC,
   PRIMARY KEY (time, tags)
 );
 
@@ -250,7 +250,7 @@ SELECT add_retention_policy('geo.manifest_geo_longitude', INTERVAL '1 year');
 CREATE TABLE IF NOT EXISTS geo.manifest_geo_metadata (
   time  TIMESTAMPTZ NOT NULL,
   tags  JSONB          NOT NULL,
-  value DOUBLE PRECISION,
+  value NUMERIC,
   PRIMARY KEY (time, tags)
 );
 
@@ -270,8 +270,8 @@ CREATE INDEX ON geo.manifest_geo_metadata (( (tags ->> 'instance') ), time DESC)
 -- Return the latest geo coordinates from the `geo` schema
 CREATE OR REPLACE FUNCTION api.get_latest_geo_coordinates()
 RETURNS TABLE (
-  latitude      DOUBLE PRECISION,
-  longitude     DOUBLE PRECISION,
+  latitude      NUMERIC,
+  longitude     NUMERIC,
   country_name  TEXT,
   city          TEXT
 )
@@ -283,7 +283,7 @@ WITH
   latest_latitude AS (
     SELECT DISTINCT ON (tags ->> 'instance')
       (tags ->> 'instance') AS instance,
-      value::DOUBLE PRECISION AS latitude,
+      value::NUMERIC AS latitude,
       time
     FROM   manifest_geo_latitude
     ORDER  BY (tags ->> 'instance'), time DESC
@@ -291,7 +291,7 @@ WITH
   latest_longitude AS (
     SELECT DISTINCT ON (tags ->> 'instance')
       (tags ->> 'instance') AS instance,
-      value::DOUBLE PRECISION AS longitude,
+      value::NUMERIC AS longitude,
       time
     FROM   manifest_geo_longitude
     ORDER  BY (tags ->> 'instance'), time DESC

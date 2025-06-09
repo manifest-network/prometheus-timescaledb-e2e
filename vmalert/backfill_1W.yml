@@ -54,6 +54,10 @@ groups:
         expr: last_over_time(yaci_transactions_total_count{manifest_chain="manifest-ledger-mainnet"}[1h])
       - record: total_tx_count
         expr: last_over_time(yaci_transactions_total_count{manifest_chain="manifest-ledger-testnet"}[1h])
+      - record: locked_tokens
+        expr: last_over_time(yaci_locked_tokens_count{manifest_chain="manifest-ledger-mainnet"}[1h])
+      - record: locked_tokens
+        expr: last_over_time(yaci_locked_tokens_count{manifest_chain="manifest-ledger-testnet"}[1h])
       - record: node_count
         expr: count(last_over_time(up{manifest_network="true", metric_source="netdata"}[1h]))
       - record: web_requests_per_sec
