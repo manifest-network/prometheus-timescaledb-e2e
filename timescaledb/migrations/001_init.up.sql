@@ -67,55 +67,31 @@ GRANT EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) TO writer;
 
 -- Pre-create the geo coordinates tables in the `common` schema
 -- This allow additional optimizations for the geo coordinates queries
-CREATE TABLE IF NOT EXISTS geo.manifest_geo_latitude (
-  time  TIMESTAMPTZ NOT NULL,
-  tags  JSONB          NOT NULL,
-  value NUMERIC,
-  PRIMARY KEY (time, tags)
-);
-
-SELECT create_hypertable(
-  'geo.manifest_geo_latitude',
-  'time',
-  if_not_exists => TRUE
-);
-
-SELECT add_retention_policy('geo.manifest_geo_latitude', INTERVAL '1 year');
-
-CREATE TABLE IF NOT EXISTS geo.manifest_geo_longitude (
-  time  TIMESTAMPTZ NOT NULL,
-  tags  JSONB          NOT NULL,
-  value NUMERIC,
-  PRIMARY KEY (time, tags)
-);
-
-SELECT create_hypertable(
-  'geo.manifest_geo_longitude',
-  'time',
-  if_not_exists => TRUE
-);
-
-SELECT add_retention_policy('geo.manifest_geo_longitude', INTERVAL '1 year');
-
-CREATE TABLE IF NOT EXISTS geo.manifest_geo_metadata (
-  time  TIMESTAMPTZ NOT NULL,
-  tags  JSONB          NOT NULL,
-  value NUMERIC,
-  PRIMARY KEY (time, tags)
-);
-
-SELECT create_hypertable(
-  'geo.manifest_geo_metadata',
-  'time',
-  if_not_exists => TRUE
-);
-
-SELECT add_retention_policy('geo.manifest_geo_metadata', INTERVAL '1 year');
-
--- Create indexes on the geo coordinates tables
-CREATE INDEX ON geo.manifest_geo_latitude (( (tags ->> 'instance') ), time DESC);
-CREATE INDEX ON geo.manifest_geo_longitude (( (tags ->> 'instance') ), time DESC);
-CREATE INDEX ON geo.manifest_geo_metadata (( (tags ->> 'instance') ), time DESC);
+DO $$
+DECLARE tbl text;
+BEGIN
+  FOR tbl IN (
+    VALUES
+    ('latitude'),
+    ('longitude'),
+    ('metadata')
+  ) LOOP
+    EXECUTE format(
+      $fmt$
+        CREATE TABLE IF NOT EXISTS geo.manifest_geo_%1$I (
+          time  TIMESTAMPTZ NOT NULL,
+          tags  JSONB         NOT NULL,
+          value NUMERIC,
+          instance  TEXT GENERATED ALWAYS AS (tags->>'instance') STORED,
+          PRIMARY KEY (time, tags)
+        );
+        SELECT create_hypertable('geo.manifest_geo_%1$I', 'time', if_not_exists=>TRUE);
+        SELECT add_retention_policy('geo.manifest_geo_%1$I', INTERVAL '1 year');
+        CREATE INDEX IF NOT EXISTS  geo_manifest_geo_%1$I_inst_time_idx ON geo.manifest_geo_%1$I (instance, time DESC);
+      $fmt$, tbl);
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Return the latest geo coordinates from the `geo` schema
 CREATE OR REPLACE FUNCTION api.get_latest_geo_coordinates()
@@ -446,7 +422,7 @@ FOR rec IN (
       '%I.cagg_%I',
       start_offset      => INTERVAL '1 year',
       end_offset        => INTERVAL '1 hour',
-      schedule_interval => INTERVAL '1 minutes'
+      schedule_interval => INTERVAL '1 hour'
     );
     $func$, rec.column2, rec.column1
   );
