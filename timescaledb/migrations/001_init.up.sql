@@ -426,11 +426,14 @@ FOR rec IN (
   EXECUTE format(
     $func$
     CREATE MATERIALIZED VIEW IF NOT EXISTS %I.cagg_%I
-      WITH (timescaledb.continuous)
+      WITH (
+        timescaledb.continuous,
+        timescaledb.materialized_only = true -- Enable real-time aggregation
+      )
     AS
       SELECT
-        time_bucket('1 day', d.time)        AS "timestamp",
-        max(d.value::NUMERIC)               AS "value"
+        time_bucket('1 hour', d.time)        AS "timestamp",
+        max(d.value::NUMERIC)                AS "value"
       FROM %I.%I as d
       GROUP BY 1
     WITH NO DATA;
@@ -441,7 +444,7 @@ FOR rec IN (
     $func$
     SELECT add_continuous_aggregate_policy(
       '%I.cagg_%I',
-      start_offset      => INTERVAL '30 days',
+      start_offset      => INTERVAL '1 year',
       end_offset        => INTERVAL '1 hour',
       schedule_interval => INTERVAL '1 minutes'
     );
@@ -504,34 +507,80 @@ END LOOP;
 END;
 $outer$;
 
--- Return the latest circulating supply for the testnet
-CREATE OR REPLACE FUNCTION api.get_testnet_circulating_supply(
-  p_start TIMESTAMPTZ,
-  p_end   TIMESTAMPTZ
-)
-RETURNS TABLE (
-  "timestamp" TIMESTAMPTZ,
-  "value"     NUMERIC
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = testnet, internal, public
-AS $$
+-- Create functions to get the circulating supply for testnet and mainnet
+DO
+$outer$
+DECLARE
+  rec RECORD;
 BEGIN
-  RETURN QUERY
-    SELECT
-      t."timestamp",
-      t."value" - COALESCE(e."value", 0)
-    FROM cagg_manifest_tokenomics_total_supply   AS t
-    LEFT JOIN cagg_manifest_tokenomics_excluded_supply AS e
-      USING ("timestamp")
-    WHERE t."timestamp" BETWEEN p_start AND p_end
-    ORDER BY 1 DESC;
-END;
-$$;
+FOR rec IN (
+  VALUES
+    ('testnet'),
+    ('mainnet')
+) LOOP
+  EXECUTE format(
+    $func$
+      CREATE OR REPLACE FUNCTION api.get_%I_circulating_supply(
+        p_interval INTERVAL,
+        p_from TIMESTAMPTZ,
+        p_to   TIMESTAMPTZ
+      )
+      RETURNS TABLE (
+        "timestamp" TIMESTAMPTZ,
+        "value"    TEXT
+      )
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      SET search_path = %I, internal, public
+      AS $$
+      BEGIN
+        RETURN QUERY
+          SELECT
+            time_bucket(p_interval, t."timestamp") AS "timestamp",
+            max(
+              t."value"
+                - COALESCE(e."value", 0)
+                - COALESCE(l."value", 0)
+            )::TEXT AS "value"
+          FROM cagg_manifest_tokenomics_total_supply AS t
+          LEFT JOIN cagg_manifest_tokenomics_excluded_supply AS e USING ("timestamp")
+          LEFT JOIN cagg_locked_tokens AS l USING ("timestamp")
+          WHERE t."timestamp" BETWEEN p_from AND p_to
+          GROUP BY 1
+          ORDER BY 1 DESC;
+      END;
+      $$;
+    $func$, rec.column1, rec.column1
+  );
 
-GRANT EXECUTE
-  ON FUNCTION api.get_testnet_circulating_supply(TIMESTAMPTZ, TIMESTAMPTZ)
-  TO web_anon;
+  EXECUTE format(
+    'GRANT EXECUTE ON FUNCTION api.get_%I_circulating_supply(INTERVAL, TIMESTAMPTZ, TIMESTAMPTZ) TO web_anon;',
+    rec.column1
+  );
+
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE VIEW api.latest_%I_circulating_supply AS
+      SELECT
+        t."timestamp",
+        (t."value"
+         - COALESCE(e."value", 0)
+         - COALESCE(l."value", 0)
+        )::TEXT AS value
+      FROM %I.cagg_manifest_tokenomics_total_supply   AS t
+      LEFT JOIN %I.cagg_manifest_tokenomics_excluded_supply AS e USING ("timestamp")
+      LEFT JOIN %I.cagg_locked_tokens                    AS l USING ("timestamp")
+      ORDER BY 1 DESC
+      LIMIT 1;
+    $func$, rec.column1, rec.column1, rec.column1, rec.column1
+  );
+
+  EXECUTE format(
+    'GRANT SELECT ON api.latest_%I_circulating_supply TO web_anon;',
+    rec.column1
+  );
+  END LOOP;
+END;
+$outer$;
 
 COMMIT;
