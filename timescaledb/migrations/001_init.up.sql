@@ -82,12 +82,11 @@ BEGIN
           time  TIMESTAMPTZ NOT NULL,
           tags  JSONB         NOT NULL,
           value NUMERIC,
-          instance  TEXT GENERATED ALWAYS AS (tags->>'instance') STORED,
           PRIMARY KEY (time, tags)
         );
         SELECT create_hypertable('geo.manifest_geo_%1$I', 'time', if_not_exists=>TRUE);
         SELECT add_retention_policy('geo.manifest_geo_%1$I', INTERVAL '1 year');
-        CREATE INDEX IF NOT EXISTS  geo_manifest_geo_%1$I_inst_time_idx ON geo.manifest_geo_%1$I (instance, time DESC);
+        CREATE INDEX ON geo.manifest_geo_%1$I (( (tags ->> 'instance') ), time DESC);
       $fmt$, tbl);
   END LOOP;
 END;
