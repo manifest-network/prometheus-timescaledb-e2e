@@ -179,7 +179,7 @@ BEGIN
 
   EXECUTE format(
     $func$
-    CREATE OR REPLACE FUNCTION api.get_%I_agg_%I (
+    CREATE OR REPLACE FUNCTION api.get_%1$I_agg_%2$I (
         p_interval INTERVAL,
         p_from TIMESTAMPTZ,
         p_to TIMESTAMPTZ
@@ -191,7 +191,7 @@ BEGIN
     LANGUAGE plpgsql
     STRICT
     SECURITY DEFINER
-    SET search_path = %I, internal, public
+    SET search_path = %1$I, internal, public
     AS $body$
     BEGIN
       -- Ensure p_from is less than or equal to p_to
@@ -213,26 +213,26 @@ BEGIN
       SELECT
           time_bucket(p_interval, d.time)   AS "timestamp",
           max(d.value)::TEXT                AS "value"
-      FROM %I.%I as d
+      FROM %1$I.%2$I as d
       WHERE d.time >= p_from AND d.time <= p_to
       GROUP BY 1
       ORDER BY 1 DESC;
     END;
     $body$;
-    $func$, p_network, p_metric_name, p_network, p_network, p_metric_name
+    $func$, p_network, p_metric_name
   );
   EXECUTE format('GRANT EXECUTE ON FUNCTION api.get_%I_agg_%I(interval, timestamptz, timestamptz) TO web_anon;', p_network, p_metric_name);
 
   EXECUTE format(
     $func$
-      CREATE OR REPLACE VIEW api.latest_%I_%I AS
+      CREATE OR REPLACE VIEW api.latest_%1$I_%2$I AS
       SELECT
         d.time         AS "timestamp",
         d.value::TEXT  AS "value"
-      FROM %I.%I as d
+      FROM %1$I.%2$I as d
       ORDER BY d.time DESC
       LIMIT 1;
-    $func$, p_network, p_metric_name, p_network, p_metric_name
+    $func$, p_network, p_metric_name
   );
   EXECUTE format('GRANT SELECT ON api.latest_%I_%I TO web_anon;', p_network, p_metric_name);
 END;
@@ -269,7 +269,7 @@ BEGIN
 
   EXECUTE format(
     $func$
-    CREATE OR REPLACE FUNCTION api.get_cumsum_agg_%I (
+    CREATE OR REPLACE FUNCTION api.get_cumsum_agg_%1$I (
         p_interval INTERVAL,
         p_from TIMESTAMPTZ,
         p_to TIMESTAMPTZ
@@ -304,7 +304,7 @@ BEGIN
         SELECT
           d.time as "time",
           SUM(sum(d.value)) OVER (ORDER BY time) AS cumulative
-        FROM cumsum.%I as d
+        FROM cumsum.%1$I as d
         GROUP BY d.time
       ),
       filtered AS (
@@ -326,20 +326,20 @@ BEGIN
       ORDER BY ts;
     END;
     $body$;
-    $func$, p_metric_name, p_metric_name
+    $func$, p_metric_name
   );
   EXECUTE format('GRANT EXECUTE ON FUNCTION api.get_cumsum_agg_%I(interval, timestamptz, timestamptz) TO web_anon;', p_metric_name);
 
   EXECUTE format(
     $func$
-      CREATE OR REPLACE VIEW api.latest_cumsum_%I AS
+      CREATE OR REPLACE VIEW api.latest_cumsum_%1$I AS
       SELECT
         d.time         AS "timestamp",
         d.value::TEXT  AS "value"
-      FROM cumsum.%I as d
+      FROM cumsum.%1$I as d
       ORDER BY d.time DESC
       LIMIT 1;
-    $func$, p_metric_name, p_metric_name
+    $func$, p_metric_name
   );
   EXECUTE format('GRANT SELECT ON api.latest_cumsum_%I TO web_anon;', p_metric_name);
 END;
@@ -379,10 +379,10 @@ FOR rec IN (
 
   EXECUTE format(
     $func$
-    CREATE OR REPLACE FUNCTION api.tmp_to_%I_%I()
+    CREATE OR REPLACE FUNCTION api.tmp_to_%2$I_%1$I()
     RETURNS trigger AS $$
     BEGIN
-    INSERT INTO %I.%I(time, tags, value)
+    INSERT INTO %2$I.%1$I(time, tags, value)
       VALUES (NEW.time, NEW.tags, NEW.value::NUMERIC)
     ON CONFLICT (time, tags)
       DO UPDATE SET value = EXCLUDED.value;
@@ -390,17 +390,17 @@ FOR rec IN (
     END;
     $$
     LANGUAGE plpgsql;
-    $func$, rec.column2, rec.column1, rec.column2, rec.column1
+    $func$, rec.column1, rec.column2
   );
 
   EXECUTE format(
-    'CREATE TRIGGER trg_tmp_to_%I_%I AFTER INSERT ON tmp_%I.%I FOR EACH ROW EXECUTE FUNCTION api.tmp_to_%I_%I();',
-    rec.column2, rec.column1, rec.column2, rec.column1, rec.column2, rec.column1
+    'CREATE TRIGGER trg_tmp_to_%2$I_%1$I AFTER INSERT ON tmp_%2$I.%1$I FOR EACH ROW EXECUTE FUNCTION api.tmp_to_%2$I_%1$I();',
+    rec.column1, rec.column2
   );
 
   EXECUTE format(
     $func$
-    CREATE MATERIALIZED VIEW IF NOT EXISTS %I.cagg_%I
+    CREATE MATERIALIZED VIEW IF NOT EXISTS %2$I.cagg_%1$I
       WITH (
         timescaledb.continuous,
         timescaledb.materialized_only = true -- Enable real-time aggregation
@@ -409,10 +409,10 @@ FOR rec IN (
       SELECT
         time_bucket('1 hour', d.time)        AS "timestamp",
         max(d.value::NUMERIC)                AS "value"
-      FROM %I.%I as d
+      FROM %2$I.%1$I as d
       GROUP BY 1
     WITH NO DATA;
-    $func$, rec.column2, rec.column1, rec.column2, rec.column1
+    $func$, rec.column1, rec.column2
   );
 
   EXECUTE format(
@@ -421,7 +421,7 @@ FOR rec IN (
       '%I.cagg_%I',
       start_offset      => INTERVAL '1 year',
       end_offset        => INTERVAL '1 hour',
-      schedule_interval => INTERVAL '1 hour'
+      schedule_interval => INTERVAL '30 minutes'
     );
     $func$, rec.column2, rec.column1
   );
@@ -445,7 +445,7 @@ FOR rec IN (
 ) LOOP
   EXECUTE format(
     $func$
-    CREATE OR REPLACE FUNCTION api.get_all_latest_%I_metrics()
+    CREATE OR REPLACE FUNCTION api.get_all_latest_%1$I_metrics()
       RETURNS TABLE(
         table_name    TEXT,
         "timestamp"   TIMESTAMPTZ,
@@ -453,14 +453,14 @@ FOR rec IN (
       )
     LANGUAGE plpgsql
     SECURITY DEFINER
-    SET search_path = %I, internal, public
+    SET search_path = %1$I, internal, public
     AS $body$
     DECLARE
       sql TEXT;
     BEGIN
       SELECT string_agg(
                format(
-                 '(SELECT %%L AS table_name, "timestamp", "value"::TEXT FROM api.latest_%I_%%I)',
+                 '(SELECT %%L AS table_name, "timestamp", "value"::TEXT FROM api.latest_%1$I_%%I)',
                  t.table_name,
                  t.table_name
                ),
@@ -468,13 +468,13 @@ FOR rec IN (
              )
         INTO sql
         FROM information_schema.tables AS t
-       WHERE t.table_schema = '%I'
+       WHERE t.table_schema = '%1$I'
          AND t.table_type   = 'BASE TABLE';
 
       RETURN QUERY EXECUTE sql;
     END;
     $body$
-    $func$, rec.column1, rec.column1, rec.column1, rec.column1
+    $func$, rec.column1
   );
 
   EXECUTE format('GRANT EXECUTE ON FUNCTION api.get_all_latest_%I_metrics() TO web_anon;', rec.column1);
@@ -495,7 +495,7 @@ FOR rec IN (
 ) LOOP
   EXECUTE format(
     $func$
-      CREATE OR REPLACE FUNCTION api.get_%I_circulating_supply(
+      CREATE OR REPLACE FUNCTION api.get_%1$I_circulating_supply(
         p_interval INTERVAL,
         p_from TIMESTAMPTZ,
         p_to   TIMESTAMPTZ
@@ -506,7 +506,7 @@ FOR rec IN (
       )
       LANGUAGE plpgsql
       SECURITY DEFINER
-      SET search_path = %I, internal, public
+      SET search_path = %1$I, internal, public
       AS $$
       BEGIN
         RETURN QUERY
@@ -525,7 +525,7 @@ FOR rec IN (
           ORDER BY 1 DESC;
       END;
       $$;
-    $func$, rec.column1, rec.column1
+    $func$, rec.column1
   );
 
   EXECUTE format(
@@ -535,23 +535,48 @@ FOR rec IN (
 
   EXECUTE format(
     $func$
-    CREATE OR REPLACE VIEW api.latest_%I_circulating_supply AS
+    CREATE OR REPLACE VIEW api.latest_%1$I_circulating_supply AS
       SELECT
         t."timestamp",
         (t."value"
          - COALESCE(e."value", 0)
          - COALESCE(l."value", 0)
         )::TEXT AS value
-      FROM %I.cagg_manifest_tokenomics_total_supply   AS t
-      LEFT JOIN %I.cagg_manifest_tokenomics_excluded_supply AS e USING ("timestamp")
-      LEFT JOIN %I.cagg_locked_tokens                    AS l USING ("timestamp")
+      FROM %1$I.cagg_manifest_tokenomics_total_supply   AS t
+      LEFT JOIN %1$I.cagg_manifest_tokenomics_excluded_supply AS e USING ("timestamp")
+      LEFT JOIN %1$I.cagg_locked_tokens                    AS l USING ("timestamp")
       ORDER BY 1 DESC
       LIMIT 1;
-    $func$, rec.column1, rec.column1, rec.column1, rec.column1
+    $func$, rec.column1
   );
 
   EXECUTE format(
     'GRANT SELECT ON api.latest_%I_circulating_supply TO web_anon;',
+    rec.column1
+  );
+
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE FUNCTION api.get_latest_%1$I_circulating_supply()
+      RETURNS TABLE (
+        "timestamp" TIMESTAMPTZ,
+        "value"     TEXT
+      )
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      SET search_path = %1$I, internal, public
+      AS $$
+      BEGIN
+        RETURN QUERY
+          SELECT t.timestamp, t.value
+          FROM api.latest_%1$I_circulating_supply as t;
+      END;
+      $$;
+    $func$, rec.column1
+  );
+
+  EXECUTE format(
+    'GRANT EXECUTE ON FUNCTION api.get_latest_%I_circulating_supply() TO web_anon;',
     rec.column1
   );
   END LOOP;
