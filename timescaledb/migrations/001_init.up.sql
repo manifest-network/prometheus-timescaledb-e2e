@@ -33,8 +33,11 @@ GRANT SELECT ON internal.excluded_addresses TO web_anon;
 
 -- Return all excluded addresses as an array
 CREATE OR REPLACE FUNCTION api.get_excluded_addresses()
-RETURNS TEXT[] AS $$
-  SELECT array_agg(value) FROM internal.excluded_addresses;
+RETURNS TEXT[]
+SECURITY DEFINER
+SET search_path = api, internal, public
+AS $$
+  SELECT COALESCE(array_agg(value), ARRAY[]::text[]) FROM internal.excluded_addresses;
 $$ LANGUAGE sql STABLE;
 GRANT EXECUTE ON FUNCTION api.get_excluded_addresses TO web_anon;
 
@@ -66,7 +69,7 @@ GRANT EXECUTE ON FUNCTION api.add_excluded_address(TEXT) TO writer;
 GRANT EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) TO writer;
 
 -- Pre-create the geo coordinates tables in the `common` schema
--- This allow additional optimizations for the geo coordinates queries
+-- This allows additional optimizations for the geo coordinates queries
 DO $$
 DECLARE tbl text;
 BEGIN
@@ -404,7 +407,7 @@ FOR rec IN (
     CREATE MATERIALIZED VIEW IF NOT EXISTS %2$I.cagg_%1$I
       WITH (
         timescaledb.continuous,
-        timescaledb.materialized_only = true -- Enable real-time aggregation
+        timescaledb.materialized_only = false -- Enable real-time aggregation
       )
     AS
       SELECT
@@ -421,8 +424,8 @@ FOR rec IN (
     SELECT add_continuous_aggregate_policy(
       '%I.cagg_%I',
       start_offset      => INTERVAL '1 year',
-      end_offset        => INTERVAL '1 minute',
-      schedule_interval => INTERVAL '1 minute',
+      end_offset        => INTERVAL '1 hour',
+      schedule_interval => INTERVAL '1 hour',
       if_not_exists => TRUE
     );
     $func$, rec.column2, rec.column1
@@ -597,11 +600,11 @@ FOR rec IN (
     CREATE MATERIALIZED VIEW IF NOT EXISTS %1$I.cagg_total_mfx_burned
       WITH (
         timescaledb.continuous,
-        timescaledb.materialized_only = true -- Enable real-time aggregation
+        timescaledb.materialized_only = false -- Enable real-time aggregation
       )
     AS
       SELECT
-        time_bucket('1 minute', d.time)        AS "timestamp",
+        time_bucket('1 minute', d.time)      AS "timestamp",
         max(d.value::NUMERIC)                AS "value"
       FROM %1$I.total_mfx_burned as d
       GROUP BY 1
@@ -613,8 +616,8 @@ FOR rec IN (
     SELECT add_continuous_aggregate_policy(
       '%1$I.cagg_total_mfx_burned',
       start_offset      => INTERVAL '1 year',
-      end_offset        => INTERVAL '1 minute',
-      schedule_interval => INTERVAL '1 minute',
+      end_offset        => INTERVAL '1 hour',
+      schedule_interval => INTERVAL '1 hour',
       if_not_exists => TRUE
     );
     $func$, rec.column1);
