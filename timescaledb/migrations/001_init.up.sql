@@ -85,8 +85,8 @@ BEGIN
           PRIMARY KEY (time, tags)
         );
         SELECT create_hypertable('geo.manifest_geo_%1$I', 'time', if_not_exists=>TRUE);
-        SELECT add_retention_policy('geo.manifest_geo_%1$I', INTERVAL '1 year');
-        CREATE INDEX ON geo.manifest_geo_%1$I (( (tags ->> 'instance') ), time DESC);
+        SELECT add_retention_policy('geo.manifest_geo_%1$I', INTERVAL '1 year', if_not_exists=>TRUE);
+        CREATE INDEX IF NOT EXISTS geo_manifest_geo_%1$I_instance_time_desc ON geo.manifest_geo_%1$I (( (tags ->> 'instance') ), time DESC);
       $fmt$, tbl);
   END LOOP;
 END;
@@ -172,7 +172,7 @@ BEGIN
 
   EXECUTE format(
     $fmt$
-      SELECT add_retention_policy('%I.%I', INTERVAL '1 year')
+      SELECT add_retention_policy('%I.%I', INTERVAL '1 year', if_not_exists => TRUE)
     $fmt$, p_network, p_metric_name
   );
 
@@ -262,7 +262,7 @@ BEGIN
 
   EXECUTE format(
     $fmt$
-      SELECT add_retention_policy('cumsum.%I', INTERVAL '1 year')
+      SELECT add_retention_policy('cumsum.%I', INTERVAL '1 year', if_not_exists => TRUE)
     $fmt$, p_metric_name
   );
 
@@ -358,9 +358,11 @@ FOR rec IN (
     ('manifest_tokenomics_total_supply', 'testnet'),
     ('manifest_tokenomics_excluded_supply', 'testnet'),
     ('locked_tokens', 'testnet'),
+    ('locked_fees', 'testnet'),
     ('manifest_tokenomics_total_supply', 'mainnet'),
     ('manifest_tokenomics_excluded_supply', 'mainnet'),
-    ('locked_tokens', 'mainnet')
+    ('locked_tokens', 'mainnet'),
+    ('locked_fees', 'mainnet')
 ) LOOP
   PERFORM internal.initialize_metric(rec.column1, rec.column2);
   EXECUTE format('create schema IF not exists tmp_%I', rec.column2);
@@ -372,7 +374,7 @@ FOR rec IN (
   );
   EXECUTE format(
     $func$
-      SELECT add_retention_policy('tmp_%I.%I', INTERVAL '1 day')
+      SELECT add_retention_policy('tmp_%I.%I', INTERVAL '1 day', if_not_exists => TRUE)
     $func$, rec.column2, rec.column1
   );
 
@@ -393,7 +395,7 @@ FOR rec IN (
   );
 
   EXECUTE format(
-    'CREATE TRIGGER trg_tmp_to_%2$I_%1$I AFTER INSERT ON tmp_%2$I.%1$I FOR EACH ROW EXECUTE FUNCTION api.tmp_to_%2$I_%1$I();',
+    'CREATE OR REPLACE TRIGGER trg_tmp_to_%2$I_%1$I AFTER INSERT ON tmp_%2$I.%1$I FOR EACH ROW EXECUTE FUNCTION api.tmp_to_%2$I_%1$I();',
     rec.column1, rec.column2
   );
 
@@ -406,7 +408,7 @@ FOR rec IN (
       )
     AS
       SELECT
-        time_bucket('1 hour', d.time)        AS "timestamp",
+        time_bucket('1 minute', d.time)      AS "timestamp",
         max(d.value::NUMERIC)                AS "value"
       FROM %2$I.%1$I as d
       GROUP BY 1
@@ -419,8 +421,9 @@ FOR rec IN (
     SELECT add_continuous_aggregate_policy(
       '%I.cagg_%I',
       start_offset      => INTERVAL '1 year',
-      end_offset        => INTERVAL '1 hour',
-      schedule_interval => INTERVAL '30 minutes'
+      end_offset        => INTERVAL '1 minute',
+      schedule_interval => INTERVAL '1 minute',
+      if_not_exists => TRUE
     );
     $func$, rec.column2, rec.column1
   );
@@ -515,10 +518,12 @@ FOR rec IN (
               t."value"
                 - COALESCE(e."value", 0)
                 - COALESCE(l."value", 0)
+                - COALESCE(f."value", 0)
             )::TEXT AS "value"
           FROM cagg_manifest_tokenomics_total_supply AS t
           LEFT JOIN cagg_manifest_tokenomics_excluded_supply AS e USING ("timestamp")
           LEFT JOIN cagg_locked_tokens AS l USING ("timestamp")
+          LEFT JOIN cagg_locked_fees AS f USING ("timestamp")
           WHERE t."timestamp" BETWEEN p_from AND p_to
           GROUP BY 1
           ORDER BY 1 DESC;
@@ -538,12 +543,14 @@ FOR rec IN (
       SELECT
         t."timestamp",
         (t."value"
-         - COALESCE(e."value", 0)
-         - COALESCE(l."value", 0)
+         - COALESCE(e."value", 0) -- excluded supply
+         - COALESCE(l."value", 0) -- locked tokens
+         - COALESCE(f."value", 0) -- locked fees (virtually burned)
         )::TEXT AS value
-      FROM %1$I.cagg_manifest_tokenomics_total_supply   AS t
+      FROM %1$I.cagg_manifest_tokenomics_total_supply         AS t
       LEFT JOIN %1$I.cagg_manifest_tokenomics_excluded_supply AS e USING ("timestamp")
-      LEFT JOIN %1$I.cagg_locked_tokens                    AS l USING ("timestamp")
+      LEFT JOIN %1$I.cagg_locked_tokens                       AS l USING ("timestamp")
+      LEFT JOIN %1$I.cagg_locked_fees                         AS f USING ("timestamp")
       ORDER BY 1 DESC
       LIMIT 1;
     $func$, rec.column1
@@ -576,6 +583,113 @@ FOR rec IN (
 
   EXECUTE format(
     'GRANT EXECUTE ON FUNCTION api.get_latest_%I_circulating_supply() TO web_anon;',
+    rec.column1
+  );
+
+  -- Initialize the total MFX burned metric
+  EXECUTE format(
+    $func$
+      SELECT internal.initialize_metric('total_mfx_burned', '%1$I');
+    $func$, rec.column1);
+
+  EXECUTE format(
+    $func$
+    CREATE MATERIALIZED VIEW IF NOT EXISTS %1$I.cagg_total_mfx_burned
+      WITH (
+        timescaledb.continuous,
+        timescaledb.materialized_only = true -- Enable real-time aggregation
+      )
+    AS
+      SELECT
+        time_bucket('1 minute', d.time)        AS "timestamp",
+        max(d.value::NUMERIC)                AS "value"
+      FROM %1$I.total_mfx_burned as d
+      GROUP BY 1
+    WITH NO DATA;
+    $func$, rec.column1);
+
+  EXECUTE format(
+    $func$
+    SELECT add_continuous_aggregate_policy(
+      '%1$I.cagg_total_mfx_burned',
+      start_offset      => INTERVAL '1 year',
+      end_offset        => INTERVAL '1 minute',
+      schedule_interval => INTERVAL '1 minute',
+      if_not_exists => TRUE
+    );
+    $func$, rec.column1);
+
+  EXECUTE format(
+    $func$
+      CREATE OR REPLACE FUNCTION api.get_%1$I_burned_supply(
+        p_interval INTERVAL,
+        p_from TIMESTAMPTZ,
+        p_to   TIMESTAMPTZ
+      )
+      RETURNS TABLE (
+        "timestamp" TIMESTAMPTZ,
+        "value"    TEXT
+      )
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      SET search_path = %1$I, internal, public
+      AS $$
+      BEGIN
+        RETURN QUERY
+          SELECT
+            time_bucket(p_interval, t."timestamp") AS "timestamp",
+            max(t."value" + COALESCE(f."value", 0))::TEXT AS "value"
+          FROM cagg_total_mfx_burned AS t
+          LEFT JOIN cagg_locked_fees AS f USING ("timestamp")
+          WHERE t."timestamp" BETWEEN p_from AND p_to
+          GROUP BY 1
+          ORDER BY 1 DESC;
+      END;
+      $$;
+    $func$, rec.column1
+  );
+
+  EXECUTE format(
+    'GRANT EXECUTE ON FUNCTION api.get_%I_burned_supply(INTERVAL, TIMESTAMPTZ, TIMESTAMPTZ) TO web_anon;',
+    rec.column1
+  );
+
+
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE VIEW api.latest_%1$I_burned_supply AS
+      SELECT
+        t."timestamp",
+        (t."value" + COALESCE(f."value", 0))::TEXT AS value -- locked fees (virtually burned)
+      FROM %1$I.cagg_total_mfx_burned         AS t
+      LEFT JOIN %1$I.cagg_locked_fees         AS f USING ("timestamp")
+      ORDER BY 1 DESC
+      LIMIT 1;
+    $func$, rec.column1);
+
+  EXECUTE format('GRANT SELECT ON api.latest_%I_burned_supply TO web_anon;', rec.column1);
+
+  EXECUTE format(
+    $func$
+    CREATE OR REPLACE FUNCTION api.get_latest_%1$I_burned_supply()
+      RETURNS TABLE (
+        "timestamp" TIMESTAMPTZ,
+        "value"     TEXT
+      )
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      SET search_path = %1$I, internal, public
+      AS $$
+      BEGIN
+        RETURN QUERY
+          SELECT t.timestamp, t.value
+          FROM api.latest_%1$I_burned_supply as t;
+      END;
+      $$;
+    $func$, rec.column1);
+
+  EXECUTE format(
+    'GRANT EXECUTE ON FUNCTION api.get_latest_%I_burned_supply() TO web_anon;',
     rec.column1
   );
   END LOOP;
