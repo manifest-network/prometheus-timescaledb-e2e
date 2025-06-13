@@ -100,7 +100,7 @@ RETURNS TABLE (
   country_name  TEXT,
   city          TEXT
 )
-LANGUAGE sql
+LANGUAGE sql STABLE
 SECURITY DEFINER
 SET search_path = geo, internal, public
 AS $$
@@ -187,7 +187,7 @@ BEGIN
         "timestamp" TIMESTAMPTZ,
         "value"     TEXT
     )
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STABLE
     STRICT
     SECURITY DEFINER
     SET search_path = %1$I, internal, public
@@ -235,7 +235,7 @@ BEGIN
   );
   EXECUTE format('GRANT SELECT ON api.latest_%I_%I TO web_anon;', p_network, p_metric_name);
 END;
-$outer$ LANGUAGE plpgsql;
+$outer$ LANGUAGE plpgsql VOLATILE;
 
 -- Initialize the cumulative sum metrics
 -- These metrics are used to calculate cumulative values over time, not regular metrics
@@ -277,7 +277,7 @@ BEGIN
         "timestamp" TIMESTAMPTZ,
         "value"     TEXT
     )
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STABLE
     STRICT
     SECURITY DEFINER
     SET search_path = cumsum, internal, public
@@ -342,7 +342,7 @@ BEGIN
   );
   EXECUTE format('GRANT SELECT ON api.latest_cumsum_%I TO web_anon;', p_metric_name);
 END;
-$outer$ LANGUAGE plpgsql;
+$outer$ LANGUAGE plpgsql VOLATILE;
 
 -- Workaround for https://github.com/jackc/pgx/issues/1362
 -- Telegraf still uses `pgx` v4
@@ -453,7 +453,7 @@ FOR rec IN (
         "timestamp"   TIMESTAMPTZ,
         "value"       TEXT
       )
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STABLE
     SECURITY DEFINER
     SET search_path = %1$I, internal, public
     AS $body$
@@ -506,7 +506,7 @@ FOR rec IN (
         "timestamp" TIMESTAMPTZ,
         "value"    TEXT
       )
-      LANGUAGE plpgsql
+      LANGUAGE plpgsql STABLE
       SECURITY DEFINER
       SET search_path = %1$I, internal, public
       AS $$
@@ -568,7 +568,7 @@ FOR rec IN (
         "timestamp" TIMESTAMPTZ,
         "value"     TEXT
       )
-      LANGUAGE plpgsql
+      LANGUAGE plpgsql STABLE
       SECURITY DEFINER
       SET search_path = %1$I, internal, public
       AS $$
@@ -630,7 +630,7 @@ FOR rec IN (
         "timestamp" TIMESTAMPTZ,
         "value"    TEXT
       )
-      LANGUAGE plpgsql
+      LANGUAGE plpgsql STABLE
       SECURITY DEFINER
       SET search_path = %1$I, internal, public
       AS $$
@@ -676,7 +676,7 @@ FOR rec IN (
         "timestamp" TIMESTAMPTZ,
         "value"     TEXT
       )
-      LANGUAGE plpgsql
+      LANGUAGE plpgsql STABLE
       SECURITY DEFINER
       SET search_path = %1$I, internal, public
       AS $$
