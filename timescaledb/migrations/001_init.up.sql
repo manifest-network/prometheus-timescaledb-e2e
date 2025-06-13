@@ -1,27 +1,27 @@
 BEGIN;
 
--- The public schema
-create schema if not exists api;
+-- The public SCHEMA
+CREATE SCHEMA IF NOT EXISTS api;
 
--- Internal schema
-create schema if not exists internal;
+-- Internal SCHEMA
+CREATE SCHEMA IF NOT EXISTS internal;
 
-create schema IF not exists geo;
+CREATE SCHEMA IF NOT EXISTS geo;
 
 -- Anonymous role for web access
-create role web_anon nologin;
-grant usage on schema api to web_anon;
-grant usage on schema internal to web_anon;
+CREATE role web_anon nologin;
+GRANT USAGE ON SCHEMA api TO web_anon;
+GRANT USAGE ON SCHEMA internal TO web_anon;
 
 -- Trusted user for web access
-create role authenticator noinherit nologin;
-grant web_anon to authenticator;
+CREATE role authenticator noinherit nologin;
+GRANT web_anon TO authenticator;
 
 -- Dedicated role for writing to the database
-create role writer nologin;
-grant usage on schema api to writer;
-grant usage on schema internal to writer;
-grant writer to authenticator;
+CREATE role writer nologin;
+GRANT USAGE ON SCHEMA api TO writer;
+GRANT USAGE ON SCHEMA internal TO writer;
+GRANT writer TO authenticator;
 
 -- Excluded address table
 CREATE TABLE internal.excluded_addresses (
@@ -152,7 +152,7 @@ CREATE OR REPLACE FUNCTION internal.initialize_metric(
   p_network TEXT)
 RETURNS VOID AS $outer$
 BEGIN
-  EXECUTE format('create schema IF not exists %I', p_network);
+  EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I', p_network);
   EXECUTE format(
     $fmt$
       CREATE TABLE IF NOT EXISTS %I.%I (
@@ -242,7 +242,7 @@ $outer$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION internal.initialize_cumsum_metric(p_metric_name TEXT)
 RETURNS VOID AS $outer$
 BEGIN
-  EXECUTE format('create schema IF not exists cumsum');
+  EXECUTE format('CREATE SCHEMA IF NOT EXISTS cumsum');
   EXECUTE format(
     $fmt$
       CREATE TABLE IF NOT EXISTS cumsum.%I (
@@ -365,7 +365,7 @@ FOR rec IN (
     ('locked_fees', 'mainnet')
 ) LOOP
   PERFORM internal.initialize_metric(rec.column1, rec.column2);
-  EXECUTE format('create schema IF not exists tmp_%I', rec.column2);
+  EXECUTE format('CREATE SCHEMA IF NOT EXISTS tmp_%I', rec.column2);
   EXECUTE format('CREATE TABLE IF NOT EXISTS tmp_%I.%I ("time" TIMESTAMPTZ, "tags" JSONB, "value" TEXT, PRIMARY KEY (time, tags))', rec.column2, rec.column1);
   EXECUTE format(
     $func$
