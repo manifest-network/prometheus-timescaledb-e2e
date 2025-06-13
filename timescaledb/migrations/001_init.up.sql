@@ -104,42 +104,41 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = geo, internal, public
 AS $$
-WITH
-  latest_latitude AS (
-    SELECT DISTINCT ON (tags ->> 'instance')
-      (tags ->> 'instance') AS instance,
-      value::NUMERIC AS latitude,
-      time
-    FROM   manifest_geo_latitude
-    ORDER  BY (tags ->> 'instance'), time DESC
-  ),
-  latest_longitude AS (
-    SELECT DISTINCT ON (tags ->> 'instance')
-      (tags ->> 'instance') AS instance,
-      value::NUMERIC AS longitude,
-      time
-    FROM   manifest_geo_longitude
-    ORDER  BY (tags ->> 'instance'), time DESC
-  ),
-  latest_geo_metadata AS (
-    SELECT DISTINCT ON (tags ->> 'instance')
-      (tags ->> 'instance')    AS instance,
-      (tags ->> 'country_name') AS country_name,
-      (tags ->> 'city')         AS city,
-      time
-    FROM   manifest_geo_metadata
-    ORDER  BY (tags ->> 'instance'), time DESC
-  )
+WITH instances AS (
+  SELECT DISTINCT (tags->>'instance') AS instance
+  FROM manifest_geo_metadata
+)
 SELECT
-  llat.latitude,
-  llon.longitude,
-  lmeta.country_name,
-  lmeta.city
-FROM  latest_latitude  AS llat
-JOIN  latest_longitude AS llon
-  ON llat.instance = llon.instance
-JOIN  latest_geo_metadata AS lmeta
-  ON llat.instance = lmeta.instance;
+  lat.latitude,
+  lon.longitude,
+  meta.country_name,
+  meta.city
+FROM instances inst
+CROSS JOIN LATERAL (
+  SELECT value::NUMERIC AS latitude
+  FROM manifest_geo_latitude
+  WHERE tags->>'instance' = inst.instance
+  ORDER BY time DESC
+  LIMIT 1
+) AS lat
+CROSS JOIN LATERAL (
+  SELECT value::NUMERIC AS longitude
+  FROM manifest_geo_longitude
+  WHERE tags->>'instance' = inst.instance
+  ORDER BY time DESC
+  LIMIT 1
+) AS lon
+CROSS JOIN LATERAL (
+  SELECT
+    tags->>'country_name' AS country_name,
+    tags->>'city'         AS city
+  FROM manifest_geo_metadata
+  WHERE tags->>'instance' = inst.instance
+  ORDER BY time DESC
+  LIMIT 1
+) AS meta
+WHERE lat.latitude IS NOT NULL
+  AND lon.longitude IS NOT NULL
 $$;
 
 GRANT EXECUTE
