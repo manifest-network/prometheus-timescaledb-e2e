@@ -23,15 +23,15 @@ groups:
       - record: manifest_geo_longitude
         expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_geo_longitude_longitude_average[1d])
       - record: manifest_tokenomics_denom_metadata
-        expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_denom_metadata_metadata_average{manifest_app="archive", manifest_tier="mainnet"}[1d])
+        expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_denom_metadata_metadata_average{manifest_app="validator", manifest_tier="mainnet"}[1d])
       - record: manifest_tokenomics_denom_metadata
         expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_denom_metadata_metadata_average{manifest_app="validator", manifest_tier="testnet"}[1d])
       - record: manifest_tokenomics_token_count
-        expr: avg_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_token_count_token_average{manifest_app="archive", manifest_tier="mainnet"}[1d])
+        expr: avg_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_token_count_token_average{manifest_app="validator", manifest_tier="mainnet"}[1d])
       - record: manifest_tokenomics_token_count
         expr: avg_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_token_count_token_average{manifest_app="validator", manifest_tier="testnet"}[1d])
       - record: manifest_tokenomics_total_supply
-        expr: avg_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_total_supply_supply_average{manifest_app="archive", manifest_tier="mainnet"}[1d])
+        expr: avg_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_total_supply_supply_average{manifest_app="validator", manifest_tier="mainnet"}[1d])
       - record: manifest_tokenomics_total_supply
         expr: avg_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_total_supply_supply_average{manifest_app="validator", manifest_tier="testnet"}[1d])
       - record: total_unique_user
@@ -59,7 +59,7 @@ groups:
       - record: locked_tokens
         expr: last_over_time(yaci_locked_tokens_count{manifest_chain="manifest-ledger-testnet"}[1d])
       - record: locked_fees
-        expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_fees_fees_average{manifest_chain="manifest-ledger-mainnet",manifest_app="archive"}[1d])
+        expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_fees_fees_average{manifest_chain="manifest-ledger-mainnet",manifest_app="validator"}[1d])
       - record: locked_fees
         expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_fees_fees_average{manifest_chain="manifest-ledger-testnet",manifest_app="validator"}[1d])
       - record: node_count
