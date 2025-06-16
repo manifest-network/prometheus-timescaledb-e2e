@@ -89,6 +89,23 @@ BEGIN
     $func$, p_network, p_metric_name
   );
   EXECUTE format('GRANT SELECT ON api.latest_%I_%I TO web_anon;', p_network, p_metric_name);
+
+  EXECUTE FORMAT($func$
+    CREATE OR REPLACE FUNCTION api.get_latest_%1$I_%2$I_value()
+    RETURNS NUMERIC
+    LANGUAGE SQL
+    STABLE
+    SECURITY DEFINER
+    SET search_path = %1$I, common, internal, public
+    AS $$
+      SELECT t.value::NUMERIC
+        FROM api.latest_%1$I_%2$I as t
+        LIMIT 1;
+    $$;
+  $func$, p_network, p_metric_name);
+
+  EXECUTE FORMAT('GRANT EXECUTE ON FUNCTION api.get_latest_%I_%I_value() TO web_anon;', p_network, p_metric_name);
+
 END;
 $outer$ LANGUAGE plpgsql VOLATILE;
 

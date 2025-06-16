@@ -101,6 +101,23 @@ FOR rec IN (
     'GRANT EXECUTE ON FUNCTION api.get_latest_%I_circulating_supply() TO web_anon;',
     rec.column1
   );
+
+  EXECUTE FORMAT($func$
+    CREATE OR REPLACE FUNCTION api.get_latest_%1$I_circulating_supply_value()
+    RETURNS NUMERIC
+    LANGUAGE SQL
+    STABLE
+    SECURITY DEFINER
+    SET search_path = %1$I, common, internal, public
+    AS $$
+      SELECT t.value::NUMERIC
+        FROM api.latest_%1$I_circulating_supply as t
+        LIMIT 1;
+    $$;
+  $func$, rec.column1);
+
+  EXECUTE FORMAT('GRANT EXECUTE ON FUNCTION api.get_latest_%I_circulating_supply_value() TO web_anon;', rec.column1);
+
   END LOOP;
 END;
 $outer$;
