@@ -1,6 +1,8 @@
+BEGIN;
+
 -- Install pgTAP and declare the number of tests
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(17);
+SELECT plan(21);
 
 -- Table and columns
 SELECT has_table('internal', 'excluded_addresses', 'excluded_addresses table exists');
@@ -91,5 +93,36 @@ SELECT function_privs_are(
   'web_anon cannot execute rm_excluded_address'
 );
 
+INSERT INTO internal.excluded_addresses(value)
+VALUES ('foo'), ('bar') ON CONFLICT (value) DO NOTHING;
+
+SELECT is(
+  (SELECT count(*) FROM internal.excluded_addresses),
+  2::BIGINT,
+  'two addresses inserted'
+);
+
+SELECT results_eq(
+  'SELECT * FROM api.get_excluded_addresses()',
+  ARRAY['foo', 'bar'],
+  'get_excluded_addresses returns inserted addresses'
+);
+
+SELECT api.add_excluded_address('gazooo');
+SELECT results_eq(
+  'SELECT * FROM api.get_excluded_addresses()',
+  ARRAY['foo', 'bar', 'gazooo'],
+  'get_excluded_addresses returns addresses w/ gazooo'
+);
+--
+SELECT api.rm_excluded_address('gazooo');
+SELECT results_eq(
+  'SELECT * FROM api.get_excluded_addresses()',
+  ARRAY['foo', 'bar'],
+  'get_excluded_addresses returns addresses w/o gazooo'
+);
+
 ---- Complete the test
 SELECT * FROM finish();
+
+COMMIT;
