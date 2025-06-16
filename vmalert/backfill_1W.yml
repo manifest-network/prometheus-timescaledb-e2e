@@ -58,6 +58,10 @@ groups:
         expr: last_over_time(yaci_locked_tokens_count{manifest_chain="manifest-ledger-mainnet"}[1h])
       - record: locked_tokens
         expr: last_over_time(yaci_locked_tokens_count{manifest_chain="manifest-ledger-testnet"}[1h])
+      - record: locked_fees
+        expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_fees_fees_average{manifest_chain="manifest-ledger-mainnet",manifest_app="archive"}[1h])
+      - record: locked_fees
+        expr: last_over_time(netdata_prometheus_custom_exporter_local_manifest_tokenomics_fees_fees_average{manifest_chain="manifest-ledger-testnet",manifest_app="validator"}[1h])
       - record: node_count
         expr: count(last_over_time(up{manifest_network="true", metric_source="netdata"}[1h]))
       - record: web_requests_per_sec
