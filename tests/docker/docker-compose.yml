@@ -1,0 +1,54 @@
+services:
+  timescaledb_pgtap:
+    build:
+      dockerfile: Dockerfile.TimescaleDB-PgTAP
+      context: .
+    container_name: timescaledb-pgtap
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: metrics
+    volumes:
+      - timescaledb_data_pgtap:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  # docker-compose, when used with `--exit-code-from`, will gracefully stop ALL services if ANY container was stopped.
+  # I implemented a workaround that keeps the `migrate_test` service running until the tests are completed.
+  migrate_test:
+    image: migrate/migrate:latest
+    container_name: migrate_test
+    depends_on:
+      timescaledb_pgtap:
+        condition: service_healthy
+    volumes:
+      - ../../timescaledb/migrations:/migrations:ro
+      - ./migrate.sh:/migrate.sh:ro
+    entrypoint: /migrate.sh
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f `/tmp/SUCCESS` ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: no
+
+  sql_test:
+    build:
+      dockerfile: Dockerfile.TimescaleDB-PgTAP
+      context: .
+    container_name: sql_test
+    environment:
+      PGPASSWORD: postgres
+    depends_on:
+      timescaledb_pgtap:
+        condition: service_healthy
+      migrate_test:
+        condition: service_healthy
+    entrypoint: [ "bash", "-c", "pg_prove -d metrics -h timescaledb_pgtap -U postgres -S sslmode=disable /tests/*.sql" ]
+    volumes:
+      - ../sql:/tests:ro
+    restart: no
+
+volumes:
+  timescaledb_data_pgtap:

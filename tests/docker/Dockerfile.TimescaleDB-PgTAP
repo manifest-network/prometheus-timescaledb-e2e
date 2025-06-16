@@ -1,7 +1,7 @@
 FROM timescale/timescaledb:latest-pg17
 
 RUN apk update && \
-    apk add --no-cache make perl patch && \
+    apk add --no-cache make perl patch perl-utils && \
     mkdir -p /tmp/pgtap && \
     cd /tmp/pgtap && \
     wget https://api.pgxn.org/dist/pgtap/1.3.3/pgtap-1.3.3.zip && \
@@ -9,4 +9,6 @@ RUN apk update && \
     cd pgtap-1.3.3 && \
     make && \
     make install && \
-    rm -rf /tmp/pgtap
+    rm -rf /tmp/pgtap && \
+    cpan TAP::Parser::SourceHandler::pgTAP && \
+    apk del make patch
