@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(20);
+SELECT plan(21);
 
 SELECT
   quote_literal(now() - INTERVAL '1 day') AS yesterday,
