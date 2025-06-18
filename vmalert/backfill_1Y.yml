@@ -11,7 +11,7 @@ groups:
       - record: disk_space_total
         expr: sum(avg_over_time(netdata_disk_space_GiB_average{dimension="used",job!="netdata-dweb-hosting", guest_containers!="true", instance!~"q-cell-.*"}[1d])) + sum(avg_over_time(netdata_disk_space_GiB_average{dimension="avail",job!="netdata-dweb-hosting", guest_containers!="true", instance!~"q-cell-.*"}[1d]))
       - record: total_process
-        expr: sum(avg_over_time(netdata_system_processes_processes_average{manifest_network="true",dimension="running"}[1d])) + sum(avg_over_time(netdata_users_processes_processes_average{manifest_network="true"}[1d]))
+        expr: sum(avg_over_time(netdata_system_active_processes_processes_average{manifest_network="true",guest_containers!="true",dimension="active"}[1d]))
       - record: blockchain_height
         expr: max by (chain_id, manifest_tier) (last_over_time(cometbft_consensus_height{chain_id="manifest-ledger-mainnet"}[1d]))
       - record: blockchain_height
