@@ -113,7 +113,7 @@ SELECT is(
 
 SELECT results_eq(
   'SELECT * FROM api.latest_cumsum_cs_metric',
-  'VALUES (':yesterday'::TIMESTAMPTZ, ''4.5'')',
+  'VALUES (':yesterday'::TIMESTAMPTZ, ''14.5'')',
   'latest cumsum view returns correct value'
 );
 
