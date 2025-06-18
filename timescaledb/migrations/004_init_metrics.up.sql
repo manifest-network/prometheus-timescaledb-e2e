@@ -67,7 +67,7 @@ BEGIN
       SELECT
           time_bucket(p_interval, d.time)   AS "timestamp",
           max(d.value)::TEXT                AS "value"
-      FROM %1$I.%2$I as d
+      FROM %1$I.%2$I AS d
       WHERE d.time >= p_from AND d.time <= p_to
       GROUP BY 1
       ORDER BY 1 DESC;
@@ -83,7 +83,7 @@ BEGIN
       SELECT
         d.time         AS "timestamp",
         d.value::TEXT  AS "value"
-      FROM %1$I.%2$I as d
+      FROM %1$I.%2$I AS d
       ORDER BY d.time DESC
       LIMIT 1;
     $func$, p_network, p_metric_name
@@ -99,7 +99,7 @@ BEGIN
     SET search_path = %1$I, common, internal, public
     AS $$
       SELECT t.value::NUMERIC
-        FROM api.latest_%1$I_%2$I as t
+        FROM api.latest_%1$I_%2$I AS t
         LIMIT 1;
     $$;
   $func$, p_network, p_metric_name);
@@ -173,9 +173,9 @@ BEGIN
       RETURN QUERY
       WITH raw AS (
         SELECT
-          d.time as "time",
-          SUM(sum(d.value)) OVER (ORDER BY time) AS cumulative
-        FROM cumsum.%1$I as d
+          d.time AS "time",
+          SUM(SUM(d.value)) OVER (ORDER BY time) AS cumulative
+        FROM cumsum.%1$I AS d
         GROUP BY d.time
       ),
       filtered AS (
@@ -191,8 +191,8 @@ BEGIN
         GROUP BY ts
       )
       SELECT
-        ts as "timestamp",
-        mc::TEXT as "value"
+        ts AS "timestamp",
+        mc::TEXT AS "value"
       FROM bucketed
       ORDER BY ts;
     END;
@@ -206,8 +206,9 @@ BEGIN
       CREATE OR REPLACE VIEW api.latest_cumsum_%1$I AS
       SELECT
         d.time         AS "timestamp",
-        d.value::TEXT  AS "value"
-      FROM cumsum.%1$I as d
+        (SUM(SUM(d.value)) OVER (ORDER BY d.time))::TEXT  AS "value"
+      FROM cumsum.%1$I AS d
+      GROUP BY d.time
       ORDER BY d.time DESC
       LIMIT 1;
     $func$, p_metric_name
