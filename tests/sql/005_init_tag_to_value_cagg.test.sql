@@ -173,7 +173,7 @@ prefixes AS (
   SELECT unnest(ARRAY['tmp_','']) AS prefix
 )
 SELECT format(
-  $$DELETE FROM %1$I%2$I.%3$I;$$,
+  $$DELETE FROM %1$s%2$I.%3$I;$$,
   prefix,
   net,
   tbl
@@ -181,6 +181,27 @@ SELECT format(
 FROM combos
 CROSS JOIN prefixes
 \gexec
+
+COMMIT;
+
+-- Refresh the continuous aggregates to ensure they are up-to-date
+WITH combos AS (
+  SELECT
+    net,
+    tbl
+  FROM networks
+  CROSS JOIN metrics
+)
+SELECT format(
+  $$
+    CALL refresh_continuous_aggregate('%1$I.cagg_%2$I', now() - INTERVAL '1 hour', now());
+  $$,
+  net, tbl
+)
+FROM combos
+\gexec
+
+BEGIN;
 
 SELECT * FROM finish();
 
