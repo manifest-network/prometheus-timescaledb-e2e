@@ -27,14 +27,14 @@ BEGIN
       RETURN QUERY
       SELECT
         time_bucket(p_interval, t."timestamp") AS "timestamp",
-        max(
+        trim_scale(max(
           ( t."value"
             - COALESCE(e."value",0)     -- excluded
             - COALESCE(l."value",0)     -- locked tokens
             - COALESCE(f_fees."value",0) -- locked fees
           )
           * COALESCE(f_pow."value",0)    -- power conversion
-        )::TEXT AS "value"
+        ))::TEXT AS "value"
       FROM cagg_manifest_tokenomics_total_supply          AS t
       LEFT JOIN cagg_manifest_tokenomics_excluded_supply  AS e USING("timestamp")
       LEFT JOIN cagg_locked_tokens                        AS l USING("timestamp")
@@ -56,7 +56,7 @@ BEGIN
     CREATE OR REPLACE VIEW api.latest_%1$I_market_cap AS
       SELECT
         cs."timestamp",
-        ( cs."value" * COALESCE(f_pow."value",0) )::TEXT AS value
+        trim_scale( cs."value" * COALESCE(f_pow."value",0) )::TEXT AS value
       FROM (
         SELECT
           t."timestamp",

@@ -9,11 +9,11 @@ GRANT SELECT ON internal.excluded_addresses TO web_anon;
 
 -- Return all excluded addresses as an array
 CREATE OR REPLACE FUNCTION api.get_excluded_addresses()
-RETURNS TEXT[]
+RETURNS SETOF TEXT
 SECURITY DEFINER
 SET search_path = api, internal, public
 AS $$
-  SELECT COALESCE(array_agg(value), ARRAY[]::text[]) FROM internal.excluded_addresses;
+  SELECT value FROM internal.excluded_addresses;
 $$ LANGUAGE sql STABLE;
 GRANT EXECUTE ON FUNCTION api.get_excluded_addresses TO web_anon;
 

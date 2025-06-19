@@ -53,7 +53,7 @@ FOR rec IN (
         RETURN QUERY
           SELECT
             time_bucket(p_interval, t."timestamp") AS "timestamp",
-            max(t."value" * COALESCE(f."value", 0))::TEXT AS "value"
+            trim_scale(max(t."value" * COALESCE(f."value", 0)))::TEXT AS "value"
           FROM cagg_manifest_tokenomics_total_supply AS t
           LEFT JOIN common.cagg_mfx_power_conversion AS f USING ("timestamp")
           WHERE t."timestamp" BETWEEN p_from AND p_to
@@ -74,7 +74,7 @@ FOR rec IN (
     CREATE OR REPLACE VIEW api.latest_%1$I_fdv AS
       SELECT
         t."timestamp",
-        (t."value" * COALESCE(f."value", 0))::TEXT AS value
+        trim_scale((t."value" * COALESCE(f."value", 0)))::TEXT AS value
       FROM %1$I.cagg_manifest_tokenomics_total_supply         AS t
       LEFT JOIN common.cagg_mfx_power_conversion              AS f USING ("timestamp")
       ORDER BY 1 DESC
