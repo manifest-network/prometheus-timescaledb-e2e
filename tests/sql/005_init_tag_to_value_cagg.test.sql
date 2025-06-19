@@ -161,6 +161,27 @@ SELECT format(
 FROM combos
 \gexec
 
+-- remove all rows after the test
+WITH combos AS (
+  SELECT
+    net,
+    tbl
+  FROM networks
+  CROSS JOIN metrics
+),
+prefixes AS (
+  SELECT unnest(ARRAY['tmp_','']) AS prefix
+)
+SELECT format(
+  $$DELETE FROM %1$I%2$I.%3$I;$$,
+  prefix,
+  net,
+  tbl
+)
+FROM combos
+CROSS JOIN prefixes
+\gexec
+
 SELECT * FROM finish();
 
 COMMIT;
