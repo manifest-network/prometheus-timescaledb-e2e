@@ -1,6 +1,7 @@
 groups:
   - name: backfill_1y
     interval: 1d
+    concurrency: 4
     rules:
       - record: minio_used
         expr: sum(avg_over_time(minio_bucket_usage_total_bytes{job="minio-stats"}[1d])) by (instance,server)

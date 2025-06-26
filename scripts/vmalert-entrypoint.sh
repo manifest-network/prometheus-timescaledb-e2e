@@ -66,5 +66,6 @@ for i in $(seq 0 $((BINS - 1))); do
     --replay.disableProgressBar \
     --replay.timeFrom="$TIME_FROM" \
     --replay.timeTo="$TIME_TO" \
+    --replay.rulesDelay=0 \
     $VMALERT_ARGS
 done

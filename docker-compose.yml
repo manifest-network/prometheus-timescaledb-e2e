@@ -1,6 +1,6 @@
 services:
   vmalert:
-    image: victoriametrics/vmalert:latest
+    image: victoriametrics/vmalert:v1.120.0
     container_name: vmalert
     depends_on:
       - telegraf
@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
 #
   vmalert_backfill_1Y:
-    image: victoriametrics/vmalert:latest
+    image: victoriametrics/vmalert:v1.120.0
     container_name: vmalert_backfill_1Y
     depends_on:
       - telegraf
@@ -38,7 +38,7 @@ services:
     restart: no
 #
   vmalert_backfill_1W:
-    image: victoriametrics/vmalert:latest
+    image: victoriametrics/vmalert:v1.120.0
     container_name: vmalert_backfill_1W
     depends_on:
       - telegraf
@@ -55,7 +55,7 @@ services:
     restart: no
 
   vmalert_backfill_forever:
-    image: victoriametrics/vmalert:latest
+    image: victoriametrics/vmalert:v1.120.0
     container_name: vmalert_backfill_forever
     depends_on:
       - telegraf
