@@ -36,4 +36,30 @@ SELECT
   SUM(sum_value) OVER (PARTITION BY name, tag_id ORDER BY bucket) AS cumulative_sum
 FROM cumsum.all_metrics_minute;
 
+CREATE OR REPLACE FUNCTION api.get_agg_cumsum_metric(
+    p_metric_name TEXT,
+    p_interval INTERVAL,
+    p_from TIMESTAMPTZ,
+    p_to TIMESTAMPTZ
+)
+RETURNS TABLE(
+    "timestamp" TIMESTAMPTZ,
+    "value" TEXT
+) AS $$
+    SELECT
+        bucket AS "timestamp",
+        MAX(cumulative_sum) AS "value"
+    FROM cumsum.all_metrics_cumsum
+    WHERE name = p_metric_name
+      AND bucket >= p_from
+      AND bucket < p_to
+    GROUP BY bucket
+    ORDER BY bucket ASC
+$$
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+STRICT
+SET search_path = cumsum, public;
+
 COMMIT;
