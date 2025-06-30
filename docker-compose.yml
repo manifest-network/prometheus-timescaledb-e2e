@@ -18,7 +18,7 @@ services:
     # I wasn't able to get `host.docker.internal` to work.
     network_mode: host
     restart: unless-stopped
-#
+
   vmalert_backfill_1Y:
     image: victoriametrics/vmalert:v1.120.0
     container_name: vmalert_backfill_1Y
@@ -36,7 +36,7 @@ services:
       - '--bins=26' # Perform one range query per 2 weeks
     network_mode: host
     restart: no
-#
+##
   vmalert_backfill_1W:
     image: victoriametrics/vmalert:v1.120.0
     container_name: vmalert_backfill_1W
