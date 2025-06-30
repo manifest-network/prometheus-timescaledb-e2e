@@ -10,8 +10,6 @@ CREATE TABLE IF NOT EXISTS cumsum.prometheus_remote_write (
 );
 SELECT create_hypertable('cumsum.prometheus_remote_write', 'time');
 
-SET timescaledb.enable_cagg_window_functions TO TRUE;
-
 CREATE MATERIALIZED VIEW IF NOT EXISTS cumsum.all_metrics_minute
 WITH (timescaledb.continuous) AS
 SELECT
@@ -37,25 +35,5 @@ SELECT
   tag_id,
   SUM(sum_value) OVER (PARTITION BY name, tag_id ORDER BY bucket) AS cumulative_sum
 FROM cumsum.all_metrics_minute;
-
-CREATE OR REPLACE FUNCTION api.get_all_latest_cumsum_metrics()
-RETURNS TABLE(
-    "timestamp" TIMESTAMPTZ,
-    table_name TEXT,
-    value TEXT
-) AS $$
-    SELECT DISTINCT ON (name, tag_id)
-        bucket AS "timestamp",
-        name AS table_name,
-        cumulative_sum::TEXT AS value
-    FROM cumsum.all_metrics_cumsum
-    ORDER BY name, tag_id, bucket DESC
-$$
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = cumsum, internal;
-
-GRANT EXECUTE ON FUNCTION api.get_all_latest_cumsum_metrics() TO web_anon;
 
 COMMIT;

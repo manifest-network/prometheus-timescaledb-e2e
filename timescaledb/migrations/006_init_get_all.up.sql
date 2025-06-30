@@ -31,9 +31,20 @@ $$ LANGUAGE sql STABLE
 SECURITY DEFINER
 SET search_path = internal;
 
+CREATE OR REPLACE FUNCTION api.get_all_latest_cumsum_metrics()
+RETURNS TABLE("timestamp" TIMESTAMPTZ, table_name TEXT, "value" TEXT) AS $$
+    SELECT DISTINCT ON (name) bucket AS "timestamp", name AS table_name, cumulative_sum::TEXT AS "value"
+    FROM cumsum.all_metrics_cumsum
+    ORDER BY name, bucket DESC
+$$
+LANGUAGE sql STABLE
+SECURITY DEFINER
+SET search_path = cumsum;
+
 -- Grant permissions to web_anon role
 GRANT EXECUTE ON FUNCTION api.get_all_latest_common_metrics() TO web_anon;
 GRANT EXECUTE ON FUNCTION api.get_all_latest_testnet_metrics() TO web_anon;
 GRANT EXECUTE ON FUNCTION api.get_all_latest_mainnet_metrics() TO web_anon;
+GRANT EXECUTE ON FUNCTION api.get_all_latest_cumsum_metrics() TO web_anon;
 
 COMMIT;

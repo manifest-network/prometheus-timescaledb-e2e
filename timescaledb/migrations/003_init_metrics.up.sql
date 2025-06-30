@@ -13,6 +13,7 @@ SELECT create_hypertable('internal.prometheus_remote_write', 'time');
 SELECT add_retention_policy('internal.prometheus_remote_write', INTERVAL '1 year');
 
 CREATE INDEX ON internal.prometheus_remote_write (schema, name, time DESC);
+CREATE INDEX IF NOT EXISTS idx_metric_name_time ON internal.prometheus_remote_write (name, time DESC);
 
 CREATE TABLE internal.prometheus_remote_write_tag (
     tag_id BIGINT PRIMARY KEY,
@@ -20,5 +21,34 @@ CREATE TABLE internal.prometheus_remote_write_tag (
     country_name TEXT,
     city TEXT
 );
+
+CREATE OR REPLACE FUNCTION api.get_agg_metric(
+    p_metric_name TEXT,
+    p_interval INTERVAL,
+    p_from TIMESTAMPTZ,
+    p_to TIMESTAMPTZ
+)
+RETURNS TABLE(
+    "timestamp" TIMESTAMPTZ,
+    "value" TEXT
+) AS $$
+    SELECT
+        time_bucket(p_interval, time) AS "timestamp",
+        MAX(value)::TEXT  AS "value"
+    FROM internal.prometheus_remote_write
+    WHERE name = p_metric_name
+      AND time >= p_from
+      AND time < p_to
+    GROUP BY 1
+    ORDER BY 1 DESC
+$$
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+STRICT
+SET search_path = internal, public;
+
+-- Grant permissions to web_anon role
+GRANT EXECUTE ON FUNCTION api.get_agg_metric(TEXT, INTERVAL, TIMESTAMPTZ, TIMESTAMPTZ) TO web_anon;
 
 COMMIT;
