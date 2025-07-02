@@ -8,11 +8,11 @@ CREATE OR REPLACE FUNCTION api.get_agg_burned_supply(
 )
 RETURNS TABLE(
     "timestamp" TIMESTAMPTZ,
-    "value" NUMERIC
+    "value" TEXT
 ) AS $$
     SELECT
         bucket AS "timestamp",
-        COALESCE(total_mfx_burned, 0) + COALESCE(locked_fees, 0) AS "value"
+        (COALESCE(total_mfx_burned, 0) + COALESCE(locked_fees, 0))::TEXT AS "value"
     FROM (
         SELECT
             bucket,
@@ -38,7 +38,7 @@ CREATE OR REPLACE FUNCTION api.get_latest_burned_supply(
 )
 RETURNS TABLE(
     "timestamp" TIMESTAMPTZ,
-    "value" NUMERIC
+    "value" TEXT
 ) AS $$
     SELECT "timestamp", "value"
     FROM api.get_agg_burned_supply(

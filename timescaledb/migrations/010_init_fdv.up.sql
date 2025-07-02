@@ -8,11 +8,11 @@ CREATE OR REPLACE FUNCTION api.get_agg_fdv(
 )
 RETURNS TABLE(
     "timestamp" TIMESTAMPTZ,
-    "value" NUMERIC
+    "value" TEXT
 ) AS $$
     SELECT
         ts.bucket AS "timestamp",
-        COALESCE(ts.total_supply, 0) * COALESCE(pc.power_conversion, 0) AS "value"
+        (COALESCE(ts.total_supply, 0) * COALESCE(pc.power_conversion, 0))::TEXT AS "value"
     FROM (
         SELECT
             bucket,
@@ -47,7 +47,7 @@ CREATE OR REPLACE FUNCTION api.get_latest_fdv(
 )
 RETURNS TABLE(
     "timestamp" TIMESTAMPTZ,
-    "value" NUMERIC
+    "value" TEXT
 ) AS $$
     SELECT "timestamp", "value"
     FROM api.get_agg_fdv(

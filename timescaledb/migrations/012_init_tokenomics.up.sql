@@ -4,21 +4,21 @@ CREATE OR REPLACE FUNCTION api.get_all_latest_token_metrics(
     p_schema TEXT
 )
 RETURNS TABLE(
-    circulating_supply NUMERIC,
-    burned_supply NUMERIC,
-    fdv NUMERIC,
-    market_cap NUMERIC
+    "timestamp" TIMESTAMPTZ,
+    table_name TEXT,
+    "value" TEXT
 ) AS $$
-    SELECT
-        cs.value AS circulating_supply,
-        bs.value AS burned_supply,
-        fdv.value AS fdv,
-        mc.value AS market_cap
-    FROM
-        api.get_latest_circulating_supply(p_schema) cs,
-        api.get_latest_burned_supply(p_schema) bs,
-        api.get_latest_fdv(p_schema) fdv,
-        api.get_latest_market_cap(p_schema) mc;
+    SELECT "timestamp", 'circulating_supply' AS table_name, "value"
+    FROM api.get_latest_circulating_supply(p_schema)
+    UNION ALL
+    SELECT "timestamp", 'burned_supply' AS table_name, "value"
+    FROM api.get_latest_burned_supply(p_schema)
+    UNION ALL
+    SELECT "timestamp", 'fdv' AS table_name, "value"
+    FROM api.get_latest_fdv(p_schema)
+    UNION ALL
+    SELECT "timestamp", 'market_cap' AS table_name, "value"
+    FROM api.get_latest_market_cap(p_schema);
 $$
 LANGUAGE sql
 STABLE

@@ -8,14 +8,14 @@ CREATE OR REPLACE FUNCTION api.get_agg_circulating_supply(
 )
 RETURNS TABLE(
     "timestamp" TIMESTAMPTZ,
-    "value" NUMERIC
+    "value" TEXT
 ) AS $$
     SELECT
         bucket AS "timestamp",
         (COALESCE(total_supply, 0)
          - COALESCE(excluded_supply, 0)
          - COALESCE(locked_tokens, 0)
-         - COALESCE(locked_fees, 0)) AS "value"
+         - COALESCE(locked_fees, 0))::TEXT AS "value"
     FROM (
         SELECT
             bucket,
@@ -48,7 +48,7 @@ CREATE OR REPLACE FUNCTION api.get_latest_circulating_supply(
 )
 RETURNS TABLE(
     "timestamp" TIMESTAMPTZ,
-    "value" NUMERIC
+    "value" TEXT
 ) AS $$
     SELECT "timestamp", "value"
     FROM api.get_agg_circulating_supply(

@@ -13,20 +13,36 @@ SET search_path = internal;
 
 CREATE OR REPLACE FUNCTION api.get_all_latest_testnet_metrics()
 RETURNS TABLE("timestamp" TIMESTAMPTZ, table_name TEXT, "value" TEXT) AS $$
-    SELECT DISTINCT ON (name) time AS "timestamp", name AS table_name, value::TEXT AS "value"
-    FROM internal.prometheus_remote_write
+    SELECT DISTINCT ON (rw.name) rw.time AS "timestamp", rw.name AS table_name,
+        COALESCE(
+          max(t.supply::NUMERIC),
+          max(t.excluded_supply::NUMERIC),
+          max(t.amount::NUMERIC),
+          max(rw.value::NUMERIC)
+        )::TEXT AS "value"
+    FROM internal.prometheus_remote_write_tag AS t
+    JOIN internal.prometheus_remote_write as rw using (tag_id)
     WHERE schema = 'testnet'
-    ORDER BY name, time DESC;
+    GROUP BY rw.name, rw.time
+    ORDER BY rw.name, rw.time DESC;
 $$ LANGUAGE sql STABLE
 SECURITY DEFINER
 SET search_path = internal;
 
 CREATE OR REPLACE FUNCTION api.get_all_latest_mainnet_metrics()
 RETURNS TABLE("timestamp" TIMESTAMPTZ, table_name TEXT, "value" TEXT) AS $$
-    SELECT DISTINCT ON (name) time AS "timestamp", name AS table_name, value::TEXT AS "value"
-    FROM internal.prometheus_remote_write
+    SELECT DISTINCT ON (rw.name) rw.time AS "timestamp", rw.name AS table_name,
+        COALESCE(
+          max(t.supply::NUMERIC),
+          max(t.excluded_supply::NUMERIC),
+          max(t.amount::NUMERIC),
+          max(rw.value::NUMERIC)
+        )::TEXT AS "value"
+    FROM internal.prometheus_remote_write_tag AS t
+    JOIN internal.prometheus_remote_write as rw using (tag_id)
     WHERE schema = 'mainnet'
-    ORDER BY name, time DESC;
+    GROUP BY rw.name, rw.time
+    ORDER BY rw.name, rw.time DESC;
 $$ LANGUAGE sql STABLE
 SECURITY DEFINER
 SET search_path = internal;
