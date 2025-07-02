@@ -15,11 +15,16 @@ SELECT add_retention_policy('internal.prometheus_remote_write', INTERVAL '1 year
 CREATE INDEX ON internal.prometheus_remote_write (schema, name, time DESC);
 CREATE INDEX IF NOT EXISTS idx_metric_name_time ON internal.prometheus_remote_write (name, time DESC);
 
+-- Tag table for metrics
+-- Initialize with known tags used in init scripts
 CREATE TABLE internal.prometheus_remote_write_tag (
     tag_id BIGINT PRIMARY KEY,
     instance TEXT,
     country_name TEXT,
-    city TEXT
+    city TEXT,
+    supply TEXT,
+    excluded_supply TEXT,
+    amount TEXT
 );
 
 CREATE OR REPLACE FUNCTION api.get_agg_metric(
