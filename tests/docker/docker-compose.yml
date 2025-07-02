@@ -42,9 +42,14 @@ services:
     volumes:
       - ./fixtures/geo.prom:/geo.prom:ro
       - ./fixtures/common.prom:/common.prom:ro
-    entrypoint: >
-      sh -c "sleep 2 && curl --data-binary @/common.prom http://pushgateway_test:9091/metrics/job/common"
-    restart: "no"
+      - ./push.sh:/push.sh:ro
+    entrypoint: /push.sh
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f `/tmp/SUCCESS` ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: no
 
   # docker-compose, when used with `--exit-code-from`, will gracefully stop ALL services if ANY container was stopped.
   # I implemented a workaround that keeps the `migrate_test` service running until the tests are completed.
@@ -92,22 +97,22 @@ services:
     depends_on:
       - prometheus_test
 
-#  sql_test:
-#    build:
-#      dockerfile: Dockerfile.TimescaleDB-PgTAP
-#      context: .
-#    container_name: sql_test
-#    environment:
-#      PGPASSWORD: postgres
-#    depends_on:
-#      timescaledb_pgtap:
-#        condition: service_healthy
-#      migrate_test:
-#        condition: service_healthy
-#    entrypoint: [ "bash", "-c", "pg_prove -d metrics -h timescaledb_pgtap -U postgres -S sslmode=disable /tests/*.sql" ]
-#    volumes:
-#      - ../sql:/tests:ro
-#    restart: no
+  sql_test:
+    build:
+      dockerfile: Dockerfile.TimescaleDB-PgTAP
+      context: .
+    container_name: sql_test
+    environment:
+      PGPASSWORD: postgres
+    depends_on:
+      timescaledb_pgtap:
+        condition: service_healthy
+      migrate_test:
+        condition: service_healthy
+    entrypoint: [ "bash", "-c", "sleep 120 && pg_prove -d metrics -h timescaledb_pgtap -U postgres -S sslmode=disable /tests/*.sql" ]
+    volumes:
+      - ../sql:/tests:ro
+    restart: no
 
 volumes:
   timescaledb_data_pgtap:
