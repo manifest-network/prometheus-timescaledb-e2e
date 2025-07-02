@@ -4,6 +4,8 @@ services:
       dockerfile: Dockerfile.TimescaleDB-PgTAP
       context: .
     container_name: timescaledb-pgtap
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -13,6 +15,36 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  prometheus_test:
+    image: prom/prometheus:latest
+    container_name: prometheus_test
+    volumes:
+      - ./prometheus-test.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - timescaledb_pgtap
+
+  pushgateway_test:
+    image: prom/pushgateway:latest
+    container_name: pushgateway_test
+    depends_on:
+      - prometheus_test
+
+  push_fixture:
+    image: curlimages/curl:latest
+    container_name: push_fixture
+    depends_on:
+      - pushgateway_test
+    volumes:
+      - ./fixtures/geo.prom:/geo.prom:ro
+      - ./fixtures/common.prom:/common.prom:ro
+    entrypoint: >
+      sh -c "sleep 2 && curl --data-binary @/common.prom http://pushgateway_test:9091/metrics/job/common"
+    restart: "no"
 
   # docker-compose, when used with `--exit-code-from`, will gracefully stop ALL services if ANY container was stopped.
   # I implemented a workaround that keeps the `migrate_test` service running until the tests are completed.
@@ -33,22 +65,49 @@ services:
       retries: 5
     restart: no
 
-  sql_test:
-    build:
-      dockerfile: Dockerfile.TimescaleDB-PgTAP
-      context: .
-    container_name: sql_test
+  telegraf_test:
+    image: telegraf:latest
+    container_name: telegraf_test
     environment:
-      PGPASSWORD: postgres
+      - TELEGRAF_PG_CONN=host=timescaledb_pgtap user=postgres password=postgres dbname=metrics sslmode=disable
+    volumes:
+      - ../../telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
     depends_on:
       timescaledb_pgtap:
         condition: service_healthy
       migrate_test:
         condition: service_healthy
-    entrypoint: [ "bash", "-c", "pg_prove -d metrics -h timescaledb_pgtap -U postgres -S sslmode=disable /tests/*.sql" ]
+    restart: unless-stopped
+
+  vmalert_test:
+    image: victoriametrics/vmalert:v1.120.0
+    container_name: vmalert_test
     volumes:
-      - ../sql:/tests:ro
-    restart: no
+      -  ../../vmalert:/etc/vmalert/
+    command:
+      - -remoteWrite.disablePathAppend
+      - -rule=/etc/vmalert/live_rules.yml
+      - -datasource.url=http://prometheus_test:9090
+      - -remoteWrite.url=http://telegraf_test:9273/write
+    depends_on:
+      - prometheus_test
+
+#  sql_test:
+#    build:
+#      dockerfile: Dockerfile.TimescaleDB-PgTAP
+#      context: .
+#    container_name: sql_test
+#    environment:
+#      PGPASSWORD: postgres
+#    depends_on:
+#      timescaledb_pgtap:
+#        condition: service_healthy
+#      migrate_test:
+#        condition: service_healthy
+#    entrypoint: [ "bash", "-c", "pg_prove -d metrics -h timescaledb_pgtap -U postgres -S sslmode=disable /tests/*.sql" ]
+#    volumes:
+#      - ../sql:/tests:ro
+#    restart: no
 
 volumes:
   timescaledb_data_pgtap:

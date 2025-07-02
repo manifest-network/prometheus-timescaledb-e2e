@@ -79,6 +79,8 @@ services:
     ports:
       - "9273:9273"
       - "9274:9274"
+    environment:
+      - TELEGRAF_PG_CONN=host=timescaledb user=postgres password=postgres dbname=metrics sslmode=disable
     volumes:
       - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
     depends_on:
