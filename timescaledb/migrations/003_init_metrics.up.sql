@@ -29,6 +29,7 @@ CREATE TABLE internal.prometheus_remote_write_tag (
 
 CREATE OR REPLACE FUNCTION api.get_agg_metric(
     p_metric_name TEXT,
+    p_schema TEXT,
     p_interval INTERVAL,
     p_from TIMESTAMPTZ,
     p_to TIMESTAMPTZ
@@ -39,11 +40,18 @@ RETURNS TABLE(
 ) AS $$
     SELECT
         time_bucket(p_interval, time) AS "timestamp",
-        MAX(value)::TEXT  AS "value"
-    FROM internal.prometheus_remote_write
-    WHERE name = p_metric_name
-      AND time >= p_from
-      AND time < p_to
+        COALESCE(
+          max(t.supply::NUMERIC),
+          max(t.excluded_supply::NUMERIC),
+          max(t.amount::NUMERIC),
+          max(rw.value::NUMERIC)
+        )::TEXT AS "value"
+    FROM internal.prometheus_remote_write_tag AS t
+    JOIN internal.prometheus_remote_write as rw using (tag_id)
+    WHERE rw.name = p_metric_name
+      AND rw.schema = p_schema
+      AND rw.time >= p_from
+      AND rw.time < p_to
     GROUP BY 1
     ORDER BY 1 DESC
 $$
@@ -54,6 +62,6 @@ STRICT
 SET search_path = internal, public;
 
 -- Grant permissions to web_anon role
-GRANT EXECUTE ON FUNCTION api.get_agg_metric(TEXT, INTERVAL, TIMESTAMPTZ, TIMESTAMPTZ) TO web_anon;
+GRANT EXECUTE ON FUNCTION api.get_agg_metric(TEXT, TEXT, INTERVAL, TIMESTAMPTZ, TIMESTAMPTZ) TO web_anon;
 
 COMMIT;
