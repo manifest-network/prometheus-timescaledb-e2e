@@ -26,4 +26,31 @@ SECURITY DEFINER
 STRICT
 SET search_path = internal, public;
 
+CREATE OR REPLACE FUNCTION api.get_latest_mainnet_circulating_supply_value()
+RETURNS NUMERIC AS $$
+    SELECT "value"::NUMERIC
+    FROM api.get_latest_circulating_supply('mainnet')
+    ORDER BY "timestamp" DESC
+    LIMIT 1;
+$$
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+STRICT
+SET search_path = internal, public;
+
+CREATE OR REPLACE FUNCTION api.get_latest_mainnet_total_supply_value()
+RETURNS NUMERIC AS $$
+  SELECT COALESCE(t.supply::NUMERIC, 0)
+  FROM internal.prometheus_remote_write AS rw
+  JOIN internal.prometheus_remote_write_tag AS t USING (tag_id)
+  WHERE rw.name='manifest_tokenomics_total_supply' AND rw.schema='mainnet'
+  LIMIT 1;
+$$
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+STRICT
+SET search_path = internal, public;
+
 COMMIT;
