@@ -48,7 +48,4 @@ LANGUAGE sql STABLE
 SECURITY DEFINER
 SET search_path = geo;
 
--- Grant permissions to web_anon role for geo coordinates
-GRANT EXECUTE ON FUNCTION api.get_latest_geo_coordinates() TO web_anon;
-
 COMMIT;

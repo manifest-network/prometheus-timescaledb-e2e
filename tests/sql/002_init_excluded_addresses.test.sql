@@ -51,7 +51,7 @@ SELECT has_function(
   'api',
   'add_excluded_address',
   ARRAY['text'],
-  'add_excluded_address exists'
+  'api.add_excluded_address exists'
 );
 SELECT function_privs_are(
   'api',
@@ -74,7 +74,7 @@ SELECT has_function(
   'api',
   'rm_excluded_address',
   ARRAY['text'],
-  'rm_excluded_address exists'
+  'api.rm_excluded_address exists'
 );
 SELECT function_privs_are(
   'api',

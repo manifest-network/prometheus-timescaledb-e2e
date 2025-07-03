@@ -2,11 +2,13 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(11);
+SELECT plan(15);
 
 -- schemas exist
 SELECT has_schema('api', 'schema api exists');
 SELECT has_schema('internal', 'schema internal exists');
+SELECT has_schema('cumsum', 'schema cumsum exists');
+SELECT has_schema('geo', 'schema geo exists');
 
 -- roles exist
 SELECT has_role('web_anon', 'role web_anon exists');
@@ -15,7 +17,10 @@ SELECT has_role('writer', 'role writer exists');
 
 -- schema USAGE grants
 SELECT schema_privs_are('api', 'web_anon', ARRAY['USAGE'], 'web_anon has usage on api schema');
-SELECT schema_privs_are('internal', 'web_anon', ARRAY['USAGE'], 'web_anon has usage on internal schema');
+SELECT schema_privs_are('internal', 'web_anon', ARRAY[]::TEXT[], 'web_anon has no privileges on internal schema');
+SELECT schema_privs_are('cumsum', 'web_anon', ARRAY[]::TEXT[], 'web_anon has no privileges on cumsum schema');
+SELECT schema_privs_are('geo', 'web_anon', ARRAY[]::TEXT[], 'web_anon has no privileges on geo schema');
+
 SELECT schema_privs_are('api', 'writer', ARRAY['USAGE'], 'writer has usage on api schema');
 SELECT schema_privs_are('internal', 'writer', ARRAY['USAGE'], 'writer has usage on internal schema');
 

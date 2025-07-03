@@ -43,8 +43,9 @@ services:
       - ./fixtures/geo.prom:/geo.prom:ro
       - ./fixtures/common.prom:/common.prom:ro
       - ./fixtures/tokenomic.prom:/tokenomic.prom:ro
-      - ./push.sh:/push.sh:ro
-    entrypoint: /push.sh
+      - ./fixtures/cumsum.prom:/cumsum.prom:ro
+      - ./push_fixtures.sh:/push_fixtures.sh:ro
+    entrypoint: /push_fixtures.sh
     healthcheck:
       test: ["CMD-SHELL", "[ -f `/tmp/SUCCESS` ]"]
       interval: 10s
@@ -98,22 +99,23 @@ services:
     depends_on:
       - prometheus_test
 
-#  sql_test:
-#    build:
-#      dockerfile: Dockerfile.TimescaleDB-PgTAP
-#      context: .
-#    container_name: sql_test
-#    environment:
-#      PGPASSWORD: postgres
-#    depends_on:
-#      timescaledb_pgtap:
-#        condition: service_healthy
-#      migrate_test:
-#        condition: service_healthy
-#    entrypoint: [ "bash", "-c", "sleep 120 && pg_prove -d metrics -h timescaledb_pgtap -U postgres -S sslmode=disable /tests/*.sql" ]
-#    volumes:
-#      - ../sql:/tests:ro
-#    restart: no
+  # Wait 6 minutes for the data to fill up then run the tests.
+  sql_test:
+    build:
+      dockerfile: Dockerfile.TimescaleDB-PgTAP
+      context: .
+    container_name: sql_test
+    environment:
+      PGPASSWORD: postgres
+    depends_on:
+      timescaledb_pgtap:
+        condition: service_healthy
+      migrate_test:
+        condition: service_healthy
+    entrypoint: [ "bash", "-c", "sleep 360 && pg_prove -d metrics -h timescaledb_pgtap -U postgres -S sslmode=disable /tests/*.sql" ]
+    volumes:
+      - ../sql:/tests:ro
+    restart: no
 
 volumes:
   timescaledb_data_pgtap:

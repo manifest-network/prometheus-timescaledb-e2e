@@ -57,10 +57,4 @@ LANGUAGE sql STABLE
 SECURITY DEFINER
 SET search_path = cumsum;
 
--- Grant permissions to web_anon role
-GRANT EXECUTE ON FUNCTION api.get_all_latest_common_metrics() TO web_anon;
-GRANT EXECUTE ON FUNCTION api.get_all_latest_testnet_metrics() TO web_anon;
-GRANT EXECUTE ON FUNCTION api.get_all_latest_mainnet_metrics() TO web_anon;
-GRANT EXECUTE ON FUNCTION api.get_all_latest_cumsum_metrics() TO web_anon;
-
 COMMIT;

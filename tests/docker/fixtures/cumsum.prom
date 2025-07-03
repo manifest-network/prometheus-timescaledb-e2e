@@ -1,0 +1,1 @@
+netdata_ipv4_tcppackets_packets_persec_average{manifest_network="true",dimension="sent"} -1
