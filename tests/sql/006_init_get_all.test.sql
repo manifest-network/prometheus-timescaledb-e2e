@@ -1,87 +1,81 @@
 BEGIN;
-
 CREATE EXTENSION IF NOT EXISTS pgtap;
-
 SELECT plan(12);
 
-CREATE TEMP TABLE schemas(sch text);
-INSERT INTO schemas(sch) VALUES
-  ('testnet'),
-  ('mainnet'),
-  ('cumsum'),
-  ('common');
+SELECT has_function('api', 'get_all_latest_common_metrics', ARRAY[]::text[], 'api.get_all_latest_common_metrics() exists');
+SELECT has_function('api', 'get_all_latest_testnet_metrics', ARRAY[]::text[], 'api.get_all_latest_testnet_metrics() exists');
+SELECT has_function('api', 'get_all_latest_mainnet_metrics', ARRAY[]::text[], 'api.get_all_latest_mainnet_metrics() exists');
+SELECT has_function('api', 'get_all_latest_cumsum_metrics', ARRAY[]::text[], 'api.get_all_latest_cumsum_metrics() exists');
 
-CREATE TEMP TABLE metrics(tbl text);
-INSERT INTO metrics(tbl) VALUES
-  ('test_metric_006'),
-  ('test_metric_006_2');
+SELECT function_privs_are(
+  'api',
+  'get_all_latest_common_metrics',
+  ARRAY[]::text[],
+  'web_anon',
+  ARRAY['EXECUTE'],
+  'web_anon can execute api.get_all_latest_common_metrics'
+);
 
-SELECT
-  quote_literal(now() - INTERVAL '1 day') AS yesterday,
-  quote_literal(now() - INTERVAL '2 days') AS yesterday2,
-  quote_literal(now() - INTERVAL '3 days') AS yesterday3
-\gset
+SELECT function_privs_are(
+  'api',
+  'get_all_latest_testnet_metrics',
+  ARRAY[]::text[],
+  'web_anon',
+  ARRAY['EXECUTE'],
+  'web_anon can execute api.get_all_latest_testnet_metrics'
+);
 
--- Initialize the metric in each schema and insert some data
-WITH combos AS (
-  SELECT
-    sch,
-    tbl,
-    row_number() OVER (ORDER BY sch, tbl) AS val
-  FROM schemas
-  CROSS JOIN metrics
-)
-SELECT format(
-  $$
-    SELECT internal.initialize_metric(%2$L, %1$L);
-    SELECT has_table(%1$L, %2$L, '%1$I.%2$I table created');
-    INSERT INTO %1$I.%2$I(time, tags, value) VALUES
-      (%4$L::TIMESTAMPTZ, '{}'::JSONB, %3$s),
-      (%5$L::TIMESTAMPTZ, '{}'::JSONB, %3$s * 2),
-      (%6$L::TIMESTAMPTZ, '{}'::JSONB, %3$s * 3);
-  $$,
-    sch,
-    tbl,
-    val,
-    :yesterday,
-    :yesterday2,
-    :yesterday3
-)
-FROM combos
-\gexec
+SELECT function_privs_are(
+  'api',
+  'get_all_latest_mainnet_metrics',
+  ARRAY[]::text[],
+  'web_anon',
+  ARRAY['EXECUTE'],
+  'web_anon can execute api.get_all_latest_mainnet_metrics'
+);
 
--- Verify the `api.get_all_latest_<schema>_metrics` functions return correct values
--- `combos` produces a row for each schema and metric combination
-WITH combos AS (
-  SELECT
-    sch,
-    tbl,
-    row_number() OVER (ORDER BY sch, tbl) AS val
-  FROM schemas
-  CROSS JOIN metrics
-),
--- Create expected values for each schema
-expected AS (
-  SELECT
-    sch,
-    format(
-      $$VALUES %s$$,
-      string_agg(
-        format('(%L, %L::TIMESTAMPTZ, %L)', tbl, :yesterday, val),
-        ', ' ORDER BY tbl
-      )
-    ) AS exp
-  FROM combos
-  GROUP BY sch
-)
--- Check the results once per schema
-SELECT
-  results_eq(
-    format('SELECT * FROM api.get_all_latest_%I_metrics()', sch),
-    exp,
-    format('get_all_latest_%s_metrics() returns correct values', sch)
-  )
-FROM expected;
+SELECT function_privs_are(
+  'api',
+  'get_all_latest_cumsum_metrics',
+  ARRAY[]::text[],
+  'web_anon',
+  ARRAY['EXECUTE'],
+  'web_anon can execute api.get_all_latest_cumsum_metrics'
+);
+
+SELECT results_eq(
+  'SELECT table_name, value FROM api.get_all_latest_common_metrics()',
+  'VALUES (''node_count'', ''3''), (''talib_mfx_power_conversion'', ''0.379'')',
+  'api.get_all_latest_common_metrics() returns correct node_count value'
+);
+
+SELECT results_eq(
+  'SELECT table_name, value FROM api.get_all_latest_testnet_metrics()',
+  'VALUES
+          (''locked_fees'', ''134244018''),
+          (''locked_tokens'', ''12000000''),
+          (''manifest_tokenomics_excluded_supply'', ''122999999987062065853''),
+          (''manifest_tokenomics_total_supply'', ''123427004070058399998''),
+          (''total_mfx_burned'', ''4710007'')',
+  'api.get_all_latest_testnet_metrics() returns correct values'
+);
+
+SELECT results_eq(
+  'SELECT table_name, value FROM api.get_all_latest_mainnet_metrics()',
+  'VALUES
+          (''locked_fees'', ''134244017''),
+          (''locked_tokens'', ''12000002''),
+          (''manifest_tokenomics_excluded_supply'', ''122999999987062065852''),
+          (''manifest_tokenomics_total_supply'', ''123427004070058399997''),
+          (''total_mfx_burned'', ''135304300855652060000'')',
+  'api.get_all_latest_mainnet_metrics() returns correct values'
+);
+
+SELECT results_eq(
+  'SELECT COUNT(*) FROM api.get_all_latest_cumsum_metrics() WHERE (value::BIGINT % 60) <> 0',
+  'VALUES (0::BIGINT)',
+  'api.get_all_latest_cumsum_metrics() returns multiples of 60'
+);
 
 SELECT * FROM finish();
 

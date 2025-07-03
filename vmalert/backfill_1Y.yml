@@ -106,4 +106,4 @@ groups:
       - record: manifest_tokenomics_excluded_supply
         expr: last_over_time(netdata_prometheus_mqtt_blackbox_exporter_local_manifest_tokenomics_excluded_supply_supply_average{manifest_tier="testnet", manifest_app="validator"}[1d])
       - record: manifest_tokenomics_excluded_supply
-        expr: last_over_time(netdata_prometheus_mqtt_blackbox_exporter_local_manifest_tokenomics_excluded_supply_supply_average{manifest_tier="mainnet", manifest_app="archive"}[1d])
+        expr: last_over_time(netdata_prometheus_mqtt_blackbox_exporter_local_manifest_tokenomics_excluded_supply_supply_average{manifest_tier="mainnet", manifest_app="validator"}[1d])

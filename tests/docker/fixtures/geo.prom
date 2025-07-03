@@ -1,0 +1,3 @@
+netdata_prometheus_custom_exporter_local_manifest_geo_latitude_latitude_average{dimension="manifest_geo_latitude",family="manifest_geo",instance="foobar:19999",ip="1.2.3.4"} 40.804
+netdata_prometheus_custom_exporter_local_manifest_geo_longitude_longitude_average{dimension="manifest_geo_longitude",family="manifest_geo",instance="foobar:19999",ip="1.2.3.4"} -74.012
+netdata_prometheus_custom_exporter_local_manifest_geo_metadata_metadata_average{city="North Bergen",country_code="US",country_name="United States",dimension="manifest_geo_metadata",family="manifest_geo",instance="foobar:19999",ip="1.2.3.4",region_code="US-NJ",region_name="New Jersey",zip_code="07047"} 1
