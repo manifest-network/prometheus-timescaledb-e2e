@@ -44,8 +44,8 @@ SELECT function_privs_are(
 );
 
 SELECT results_eq(
-  'SELECT value FROM api.get_all_latest_common_metrics()',
-  'VALUES (''3'')',
+  'SELECT table_name, value FROM api.get_all_latest_common_metrics()',
+  'VALUES (''node_count'', ''3''), (''talib_mfx_power_conversion'', ''0.379'')',
   'api.get_all_latest_common_metrics() returns correct node_count value'
 );
 
@@ -55,7 +55,8 @@ SELECT results_eq(
           (''locked_fees'', ''134244018''),
           (''locked_tokens'', ''12000000''),
           (''manifest_tokenomics_excluded_supply'', ''122999999987062065853''),
-          (''manifest_tokenomics_total_supply'', ''123427004070058399998'')',
+          (''manifest_tokenomics_total_supply'', ''123427004070058399998''),
+          (''total_mfx_burned'', ''4710007'')',
   'api.get_all_latest_testnet_metrics() returns correct values'
 );
 
@@ -65,7 +66,8 @@ SELECT results_eq(
           (''locked_fees'', ''134244017''),
           (''locked_tokens'', ''12000002''),
           (''manifest_tokenomics_excluded_supply'', ''122999999987062065852''),
-          (''manifest_tokenomics_total_supply'', ''123427004070058399997'')',
+          (''manifest_tokenomics_total_supply'', ''123427004070058399997''),
+          (''total_mfx_burned'', ''135304300855652060000'')',
   'api.get_all_latest_mainnet_metrics() returns correct values'
 );
 

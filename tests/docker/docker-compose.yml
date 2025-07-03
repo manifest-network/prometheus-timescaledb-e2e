@@ -4,8 +4,6 @@ services:
       dockerfile: Dockerfile.TimescaleDB-PgTAP
       context: .
     container_name: timescaledb-pgtap
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -23,8 +21,6 @@ services:
       - ./prometheus-test.yml:/etc/prometheus/prometheus.yml:ro
     command:
       - --config.file=/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
     depends_on:
       - timescaledb_pgtap
 
