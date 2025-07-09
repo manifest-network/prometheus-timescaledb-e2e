@@ -50,15 +50,15 @@ RETURNS TABLE(
     "value" TEXT
 ) AS $$
     SELECT
-        bucket AS "timestamp",
+        time_bucket(p_interval, bucket) AS "timestamp",
         MAX(cumulative_sum) AS "value"
     FROM cumsum.all_metrics_cumsum
     WHERE name = p_metric_name
       AND schema = p_schema
       AND bucket >= p_from
       AND bucket < p_to
-    GROUP BY bucket
-    ORDER BY bucket ASC
+    GROUP BY time_bucket(p_interval, bucket)
+    ORDER BY "timestamp" ASC
 $$
 LANGUAGE sql
 STABLE
