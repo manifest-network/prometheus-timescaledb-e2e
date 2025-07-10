@@ -11,7 +11,7 @@ RETURNS TABLE(
     "value" TEXT
 ) AS $$
     SELECT
-        time_bucket(p_interval, bucket) AS "timestamp",
+        bucket AS "timestamp",
         (COALESCE(total_mfx_burned, 0) + COALESCE(locked_fees, 0))::TEXT AS "value"
     FROM (
         SELECT

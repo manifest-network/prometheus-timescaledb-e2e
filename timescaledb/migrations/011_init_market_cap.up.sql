@@ -11,7 +11,7 @@ RETURNS TABLE(
     "value" TEXT
 ) AS $$
     SELECT
-        time_bucket(p_interval, ts.bucket) AS "timestamp",
+        ts.bucket AS "timestamp",
         ((
             COALESCE(ts.total_supply, 0)
             - COALESCE(ts.excluded_supply, 0)

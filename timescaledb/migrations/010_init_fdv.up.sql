@@ -11,7 +11,7 @@ RETURNS TABLE(
     "value" TEXT
 ) AS $$
     SELECT
-        time_bucket(p_interval, ts.bucket) AS "timestamp",
+        ts.bucket AS "timestamp",
         (COALESCE(ts.total_supply, 0) * COALESCE(pc.power_conversion, 0))::TEXT AS "value"
     FROM (
         SELECT
