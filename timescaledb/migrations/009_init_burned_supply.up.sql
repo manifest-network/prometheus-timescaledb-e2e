@@ -11,11 +11,11 @@ RETURNS TABLE(
     "value" TEXT
 ) AS $$
     SELECT
-        bucket AS "timestamp",
+        time_bucket(p_interval, bucket) AS "timestamp",
         (COALESCE(total_mfx_burned, 0) + COALESCE(locked_fees, 0))::TEXT AS "value"
     FROM (
         SELECT
-            bucket,
+            time_bucket(p_interval, bucket) AS bucket,
             MAX(CASE WHEN name = 'total_mfx_burned' THEN value::NUMERIC END) AS total_mfx_burned,
             MAX(CASE WHEN name = 'locked_fees' THEN value::NUMERIC END) AS locked_fees
         FROM internal.cagg_calculated_metric
@@ -23,9 +23,9 @@ RETURNS TABLE(
           AND name IN ('total_mfx_burned', 'locked_fees')
           AND bucket >= p_from
           AND bucket < p_to
-        GROUP BY bucket
+        GROUP BY time_bucket(p_interval, bucket)
     ) AS pivoted
-    ORDER BY bucket ASC;
+    ORDER BY "timestamp" ASC;
 $$
 LANGUAGE sql
 STABLE

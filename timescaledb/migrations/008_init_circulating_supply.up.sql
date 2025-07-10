@@ -11,14 +11,14 @@ RETURNS TABLE(
     "value" TEXT
 ) AS $$
     SELECT
-        bucket AS "timestamp",
+        time_bucket(p_interval, bucket) AS "timestamp",
         (COALESCE(total_supply, 0)
          - COALESCE(excluded_supply, 0)
          - COALESCE(locked_tokens, 0)
          - COALESCE(locked_fees, 0))::TEXT AS "value"
     FROM (
         SELECT
-            bucket,
+            time_bucket(p_interval, bucket) AS bucket,
             MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' THEN value::NUMERIC END) AS total_supply,
             MAX(CASE WHEN name = 'manifest_tokenomics_excluded_supply' THEN value::NUMERIC END) AS excluded_supply,
             MAX(CASE WHEN name = 'locked_tokens' THEN value::NUMERIC END) AS locked_tokens,
@@ -33,9 +33,9 @@ RETURNS TABLE(
           )
           AND bucket >= p_from
           AND bucket < p_to
-        GROUP BY bucket
+        GROUP BY time_bucket(p_interval, bucket)
     ) AS pivoted
-    ORDER BY bucket ASC;
+    ORDER BY "timestamp" ASC;
 $$
 LANGUAGE sql
 STABLE

@@ -11,7 +11,7 @@ RETURNS TABLE(
     "value" TEXT
 ) AS $$
     SELECT
-        ts.bucket AS "timestamp",
+        time_bucket(p_interval, ts.bucket) AS "timestamp",
         ((
             COALESCE(ts.total_supply, 0)
             - COALESCE(ts.excluded_supply, 0)
@@ -20,7 +20,7 @@ RETURNS TABLE(
         ) * COALESCE(pc.power_conversion, 0))::TEXT AS "value"
     FROM (
         SELECT
-            bucket,
+            time_bucket(p_interval, bucket) AS bucket,
             MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' THEN value::NUMERIC END) AS total_supply,
             MAX(CASE WHEN name = 'manifest_tokenomics_excluded_supply' THEN value::NUMERIC END) AS excluded_supply,
             MAX(CASE WHEN name = 'locked_tokens' THEN value::NUMERIC END) AS locked_tokens,
@@ -35,19 +35,19 @@ RETURNS TABLE(
           )
           AND bucket >= p_from
           AND bucket < p_to
-        GROUP BY bucket
+        GROUP BY time_bucket(p_interval, bucket)
     ) ts
     LEFT JOIN (
         SELECT
-            bucket,
+            time_bucket(p_interval, bucket) AS bucket,
             MAX(value::NUMERIC) AS power_conversion
         FROM internal.cagg_calculated_metric
         WHERE name = 'talib_mfx_power_conversion'
           AND bucket >= p_from
           AND bucket < p_to
-        GROUP BY bucket
+        GROUP BY time_bucket(p_interval, bucket)
     ) pc ON ts.bucket = pc.bucket
-    ORDER BY ts.bucket ASC;
+    ORDER BY "timestamp" ASC;
 $$
 LANGUAGE sql
 STABLE
