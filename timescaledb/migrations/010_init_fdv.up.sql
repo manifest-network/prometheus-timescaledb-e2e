@@ -15,26 +15,26 @@ RETURNS TABLE(
         (COALESCE(ts.total_supply, 0) * COALESCE(pc.power_conversion, 0))::TEXT AS "value"
     FROM (
         SELECT
-            bucket,
+            time_bucket(p_interval, bucket) AS bucket,
             MAX(value::NUMERIC) AS total_supply
         FROM internal.cagg_calculated_metric
         WHERE schema = p_schema
           AND name = 'manifest_tokenomics_total_supply'
           AND bucket >= p_from
           AND bucket < p_to
-        GROUP BY bucket
+        GROUP BY time_bucket(p_interval, bucket)
     ) ts
     LEFT JOIN (
         SELECT
-            bucket,
+            time_bucket(p_interval, bucket) AS bucket,
             MAX(value::NUMERIC) AS power_conversion
         FROM internal.cagg_calculated_metric
         WHERE name = 'talib_mfx_power_conversion'
           AND bucket >= p_from
           AND bucket < p_to
-        GROUP BY bucket
+        GROUP BY time_bucket(p_interval, bucket)
     ) pc ON ts.bucket = pc.bucket
-    ORDER BY ts.bucket DESC;
+    ORDER BY "timestamp" DESC;
 $$
 LANGUAGE sql
 STABLE
