@@ -18,7 +18,6 @@ SELECT results_eq(
   'SELECT table_name, value FROM api.get_all_latest_token_metrics(''testnet'')',
   'VALUES
     (''circulating_supply'', ''427004082850090127''),
-    (''burned_supply'', ''138954025''),
     (''fdv'', ''46778834542552133599.242''),
     (''market_cap'', ''161834547400184158.133'')',
   'api.get_all_latest_token_metrics() returns correct values for testnet'
@@ -28,7 +27,6 @@ SELECT results_eq(
   'SELECT table_name, value FROM api.get_all_latest_token_metrics(''mainnet'')',
   'VALUES
     (''circulating_supply'', ''427004082850090126''),
-    (''burned_supply'', ''135304300855786304017''),
     (''fdv'', ''46778834542552133598.863''),
     (''market_cap'', ''161834547400184157.754'')',
   'api.get_all_latest_token_metrics() returns correct values for mainnet'

@@ -25,32 +25,32 @@ SELECT function_privs_are(
   'web_anon can execute api.get_latest_burned_supply'
 );
 
--- Total burned supply + Locked Fees = Burned Supply
--- 4710007 + 134244018 = 138954025
+-- Total burned supply = Burned Supply
+-- 4710007
 SELECT set_eq(
   'SELECT value FROM api.get_agg_burned_supply(''testnet'', ''1 minute'', now() - interval ''1 day'', now()) LIMIT 1',
-  'VALUES (''138954025'')',
-  'api.get_agg_burned_supply() returns correct 1st row circulating supply value for testnet'
+  'VALUES (''4710007'')',
+  'api.get_agg_burned_supply() returns correct 1st row burned supply value for testnet'
 );
 
--- Total burned supply + Locked Fees = Burned Supply
--- 135304300855652060000 + 134244017 = 135304300855786304017
+-- Total burned supply = Burned Supply
+-- 135304300855652060000
 SELECT set_eq(
   'SELECT value FROM api.get_agg_burned_supply(''mainnet'', ''1 minute'', now() - interval ''1 day'', now()) LIMIT 1',
-  'VALUES (''135304300855786304017'')',
-  'api.get_agg_burned_supply() returns correct 1st row circulating supply value for mainnet'
+  'VALUES (''135304300855652060000'')',
+  'api.get_agg_burned_supply() returns correct 1st row burned supply value for mainnet'
 );
 
 SELECT results_eq(
   'SELECT value FROM api.get_latest_burned_supply(''testnet'')',
-  'VALUES (''138954025'')',
-  'api.get_latest_burned_supply() returns correct circulating supply value for testnet'
+  'VALUES (''4710007'')',
+  'api.get_latest_burned_supply() returns correct burned supply value for testnet'
 );
 
 SELECT results_eq(
   'SELECT value FROM api.get_latest_burned_supply(''mainnet'')',
-  'VALUES (''135304300855786304017'')',
-  'api.get_latest_burned_supply() returns correct circulating supply value for mainnet'
+  'VALUES (''135304300855652060000'')',
+  'api.get_latest_burned_supply() returns correct burned supply value for mainnet'
 );
 
 SELECT * FROM finish();
