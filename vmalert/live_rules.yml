@@ -43,6 +43,10 @@ groups:
         expr: yaci_tokenomics_total_burn_amount{manifest_tier="mainnet"}
       - record: total_mfx_minted
         expr: yaci_tokenomics_total_payout_amount{manifest_tier="mainnet"}
+      - record: total_pwr_minted
+        expr: yaci_tokenomics_total_pwr_minted_amount{manifest_tier="mainnet"}
+      - record: total_pwr_burned
+        expr: yaci_tokenomics_total_pwr_burned_amount{manifest_tier="mainnet"}
       - record: total_unique_user
         expr: yaci_addresses_total_unique_user{manifest_tier="testnet"}
       - record: total_unique_group
@@ -51,6 +55,10 @@ groups:
         expr: yaci_tokenomics_total_burn_amount{manifest_tier="testnet"}
       - record: total_mfx_minted
         expr: yaci_tokenomics_total_payout_amount{manifest_tier="testnet"}
+      - record: total_pwr_minted
+        expr: yaci_tokenomics_total_pwr_minted_amount{manifest_tier="testnet"}
+      - record: total_pwr_burned
+        expr: yaci_tokenomics_total_pwr_burned_amount{manifest_tier="testnet"}
       - record: total_tx_count
         expr: yaci_transactions_total_count{manifest_chain="manifest-ledger-mainnet"}
       - record: total_tx_count
