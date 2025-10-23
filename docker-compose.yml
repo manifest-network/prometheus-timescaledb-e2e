@@ -120,8 +120,6 @@ services:
   postgrest:
     image: postgrest/postgrest:latest
     container_name: postgrest
-    ports:
-      - "3000:3000"
     environment:
       PGRST_DB_URI: postgres://postgres:postgres@timescaledb:5432/metrics
       PGRST_DB_SCHEMA: api
@@ -132,6 +130,17 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - postgrest
     restart: unless-stopped
 
 volumes:
