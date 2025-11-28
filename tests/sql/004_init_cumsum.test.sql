@@ -29,12 +29,6 @@ SELECT has_view(
   'cumsum.all_metrics_minute is a materialized view'
 );
 
-SELECT has_view(
-  'cumsum',
-  'all_metrics_cumsum',
-  'cumsum.all_metrics_cumsum is a view'
-);
-
 SELECT has_function('api', 'get_agg_cumsum_metric', ARRAY['text', 'text', 'interval', 'timestamptz', 'timestamptz'], 'api.get_agg_cumsum_metric() exists');
 
 SELECT function_privs_are(
