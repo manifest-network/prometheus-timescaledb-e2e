@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(12);
+SELECT plan(11);
 
 SELECT has_table('cumsum', 'prometheus_remote_write', 'cumsum.prometheus_remote_write table exists');
 SELECT has_table('cumsum', 'prometheus_remote_write_tag', 'cumsum.prometheus_remote_write_tag table exists');
