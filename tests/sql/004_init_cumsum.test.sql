@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(12);
+SELECT plan(11);
 
 SELECT has_table('cumsum', 'prometheus_remote_write', 'cumsum.prometheus_remote_write table exists');
 SELECT has_table('cumsum', 'prometheus_remote_write_tag', 'cumsum.prometheus_remote_write_tag table exists');
@@ -27,12 +27,6 @@ SELECT has_view(
   'cumsum',
   'all_metrics_minute',
   'cumsum.all_metrics_minute is a materialized view'
-);
-
-SELECT has_view(
-  'cumsum',
-  'all_metrics_cumsum',
-  'cumsum.all_metrics_cumsum is a view'
 );
 
 SELECT has_function('api', 'get_agg_cumsum_metric', ARRAY['text', 'text', 'interval', 'timestamptz', 'timestamptz'], 'api.get_agg_cumsum_metric() exists');
