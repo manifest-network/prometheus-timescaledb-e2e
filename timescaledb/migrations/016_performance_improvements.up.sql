@@ -14,8 +14,8 @@ BEGIN;
 -- -----------------------------------------------------------------------------
 
 -- Index for cumsum.all_metrics_minute - used heavily by cumsum functions
-CREATE INDEX IF NOT EXISTS idx_cumsum_minute_name_schema_tag_bucket
-ON cumsum.all_metrics_minute (name, schema, tag_id, bucket DESC);
+CREATE INDEX IF NOT EXISTS idx_cumsum_minute_name_schema_bucket
+ON cumsum.all_metrics_minute (name, schema, bucket DESC);
 
 -- Index for internal.cagg_calculated_metric - used by tokenomics functions
 CREATE INDEX IF NOT EXISTS idx_cagg_calculated_name_schema_bucket
@@ -85,6 +85,8 @@ RETURNS TABLE(
       AND bucket >= p_from
       AND bucket < p_to
     GROUP BY time_bucket(p_interval, bucket)
+    -- Only return buckets where total_supply exists (matches original LEFT JOIN behavior)
+    HAVING MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' AND schema = p_schema THEN 1 END) IS NOT NULL
     ORDER BY "timestamp" DESC;
 $$
 LANGUAGE sql
@@ -128,6 +130,8 @@ RETURNS TABLE(
       AND bucket >= p_from
       AND bucket < p_to
     GROUP BY time_bucket(p_interval, bucket)
+    -- Only return buckets where total_supply exists (matches original LEFT JOIN behavior)
+    HAVING MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' AND schema = p_schema THEN 1 END) IS NOT NULL
     ORDER BY "timestamp" ASC;
 $$
 LANGUAGE sql

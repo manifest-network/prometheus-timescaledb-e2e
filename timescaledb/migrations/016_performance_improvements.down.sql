@@ -18,7 +18,7 @@ ALTER TABLE cumsum.prometheus_remote_write SET (timescaledb.compress = false);
 -- 2. Remove indexes from continuous aggregates
 -- -----------------------------------------------------------------------------
 
-DROP INDEX IF EXISTS cumsum.idx_cumsum_minute_name_schema_tag_bucket;
+DROP INDEX IF EXISTS cumsum.idx_cumsum_minute_name_schema_bucket;
 DROP INDEX IF EXISTS internal.idx_cagg_calculated_name_schema_bucket;
 DROP INDEX IF EXISTS geo.idx_geo_coords_bucket;
 DROP INDEX IF EXISTS internal.idx_prometheus_mainnet_1m_name_bucket;
