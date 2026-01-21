@@ -40,7 +40,7 @@ ON geo.latest_coords (bucket DESC);
 ALTER TABLE internal.prometheus_remote_write SET (
   timescaledb.compress,
   timescaledb.compress_segmentby = 'name, schema',
-  timescaledb.compress_orderby = 'time DESC'
+  timescaledb.compress_orderby = 'time DESC, tag_id'
 );
 
 SELECT add_compression_policy('internal.prometheus_remote_write', INTERVAL '7 days');
@@ -49,7 +49,7 @@ SELECT add_compression_policy('internal.prometheus_remote_write', INTERVAL '7 da
 ALTER TABLE cumsum.prometheus_remote_write SET (
   timescaledb.compress,
   timescaledb.compress_segmentby = 'name, schema',
-  timescaledb.compress_orderby = 'time DESC'
+  timescaledb.compress_orderby = 'time DESC, tag_id'
 );
 
 SELECT add_compression_policy('cumsum.prometheus_remote_write', INTERVAL '7 days');

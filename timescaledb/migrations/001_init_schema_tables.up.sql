@@ -39,6 +39,7 @@ GRANT writer TO authenticator;
 -- Grant usage on schemas
 GRANT USAGE ON SCHEMA api TO web_anon;
 GRANT USAGE ON SCHEMA api TO writer;
+GRANT USAGE ON SCHEMA internal TO writer;
 
 -- -----------------------------------------------------------------------------
 -- 3. Create internal metrics hypertable
@@ -97,6 +98,9 @@ CREATE TABLE internal.excluded_addresses (
     id SERIAL PRIMARY KEY,
     value TEXT NOT NULL UNIQUE
 );
+
+GRANT SELECT, INSERT, DELETE ON internal.excluded_addresses TO writer;
+GRANT SELECT ON internal.excluded_addresses TO web_anon;
 
 -- -----------------------------------------------------------------------------
 -- 7. Create staging tables for Telegraf (bulk insert with duplicate handling)

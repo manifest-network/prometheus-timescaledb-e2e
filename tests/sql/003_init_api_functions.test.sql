@@ -2,7 +2,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(83);
+SELECT plan(82);
 
 -- =============================================================================
 -- 1. Excluded addresses functions
@@ -34,22 +34,22 @@ SELECT is(
 );
 
 SELECT results_eq(
-  'SELECT * FROM api.get_excluded_addresses()',
-  ARRAY['foo', 'bar'],
+  'SELECT value FROM api.get_excluded_addresses() ORDER BY value',
+  ARRAY['bar', 'foo'],
   'get_excluded_addresses returns inserted addresses'
 );
 
 SELECT api.add_excluded_address('gazooo');
 SELECT results_eq(
-  'SELECT * FROM api.get_excluded_addresses()',
-  ARRAY['foo', 'bar', 'gazooo'],
+  'SELECT value FROM api.get_excluded_addresses() ORDER BY value',
+  ARRAY['bar', 'foo', 'gazooo'],
   'get_excluded_addresses returns addresses w/ gazooo'
 );
 
 SELECT api.rm_excluded_address('gazooo');
 SELECT results_eq(
-  'SELECT * FROM api.get_excluded_addresses()',
-  ARRAY['foo', 'bar'],
+  'SELECT value FROM api.get_excluded_addresses() ORDER BY value',
+  ARRAY['bar', 'foo'],
   'get_excluded_addresses returns addresses w/o gazooo'
 );
 

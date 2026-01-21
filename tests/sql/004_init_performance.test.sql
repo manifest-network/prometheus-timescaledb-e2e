@@ -7,24 +7,38 @@ SELECT plan(8);
 -- =============================================================================
 -- 1. Indexes on continuous aggregates exist
 -- =============================================================================
+-- Note: TimescaleDB continuous aggregates store indexes on internal materialized
+-- hypertables, so we query pg_indexes directly instead of using has_index().
 
-SELECT has_index('cumsum', 'all_metrics_minute', 'idx_cumsum_all_metrics_minute_name_schema_bucket',
-  'cumsum.all_metrics_minute has name_schema_bucket index');
+SELECT ok(
+  EXISTS(SELECT 1 FROM pg_indexes WHERE indexname = 'idx_cumsum_all_metrics_minute_name_schema_bucket'),
+  'cumsum.all_metrics_minute has name_schema_bucket index'
+);
 
-SELECT has_index('internal', 'cagg_calculated_metric', 'idx_cagg_calculated_metric_name_schema_bucket',
-  'internal.cagg_calculated_metric has name_schema_bucket index');
+SELECT ok(
+  EXISTS(SELECT 1 FROM pg_indexes WHERE indexname = 'idx_cagg_calculated_metric_name_schema_bucket'),
+  'internal.cagg_calculated_metric has name_schema_bucket index'
+);
 
-SELECT has_index('internal', 'prometheus_mainnet_1m', 'idx_prometheus_mainnet_1m_name_bucket',
-  'internal.prometheus_mainnet_1m has name_bucket index');
+SELECT ok(
+  EXISTS(SELECT 1 FROM pg_indexes WHERE indexname = 'idx_prometheus_mainnet_1m_name_bucket'),
+  'internal.prometheus_mainnet_1m has name_bucket index'
+);
 
-SELECT has_index('internal', 'prometheus_testnet_1m', 'idx_prometheus_testnet_1m_name_bucket',
-  'internal.prometheus_testnet_1m has name_bucket index');
+SELECT ok(
+  EXISTS(SELECT 1 FROM pg_indexes WHERE indexname = 'idx_prometheus_testnet_1m_name_bucket'),
+  'internal.prometheus_testnet_1m has name_bucket index'
+);
 
-SELECT has_index('internal', 'prometheus_common_1m', 'idx_prometheus_common_1m_name_bucket',
-  'internal.prometheus_common_1m has name_bucket index');
+SELECT ok(
+  EXISTS(SELECT 1 FROM pg_indexes WHERE indexname = 'idx_prometheus_common_1m_name_bucket'),
+  'internal.prometheus_common_1m has name_bucket index'
+);
 
-SELECT has_index('geo', 'latest_coords', 'idx_geo_latest_coords_bucket',
-  'geo.latest_coords has bucket index');
+SELECT ok(
+  EXISTS(SELECT 1 FROM pg_indexes WHERE indexname = 'idx_geo_latest_coords_bucket'),
+  'geo.latest_coords has bucket index'
+);
 
 -- =============================================================================
 -- 2. Compression is enabled on hypertables

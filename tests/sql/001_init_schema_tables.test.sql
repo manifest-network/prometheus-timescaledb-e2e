@@ -2,7 +2,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(42);
+SELECT plan(40);
 
 -- =============================================================================
 -- 1. Schemas exist
@@ -33,6 +33,7 @@ SELECT schema_privs_are('cumsum', 'web_anon', ARRAY[]::TEXT[], 'web_anon has no 
 SELECT schema_privs_are('geo', 'web_anon', ARRAY[]::TEXT[], 'web_anon has no privileges on geo schema');
 
 SELECT schema_privs_are('api', 'writer', ARRAY['USAGE'], 'writer has usage on api schema');
+SELECT schema_privs_are('internal', 'writer', ARRAY['USAGE'], 'writer has usage on internal schema');
 
 -- =============================================================================
 -- 4. Role memberships

@@ -30,7 +30,12 @@ SECURITY DEFINER
 SET search_path = internal;
 
 GRANT EXECUTE ON FUNCTION api.get_excluded_addresses() TO web_anon;
+
+-- Revoke public access and grant only to writer
+REVOKE EXECUTE ON FUNCTION api.add_excluded_address(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION api.add_excluded_address(TEXT) TO writer;
+
+REVOKE EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION api.rm_excluded_address(TEXT) TO writer;
 
 -- -----------------------------------------------------------------------------
