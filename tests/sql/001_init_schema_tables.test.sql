@@ -2,7 +2,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(40);
+SELECT plan(41);
 
 -- =============================================================================
 -- 1. Schemas exist
@@ -22,6 +22,11 @@ SELECT has_schema('staging_cumsum', 'schema staging_cumsum exists');
 SELECT has_role('web_anon', 'role web_anon exists');
 SELECT has_role('authenticator', 'role authenticator exists');
 SELECT has_role('writer', 'role writer exists');
+
+SELECT ok(
+  NOT (SELECT rolcanlogin FROM pg_roles WHERE rolname = 'authenticator'),
+  'authenticator role cannot login (NOLOGIN)'
+);
 
 -- =============================================================================
 -- 3. Schema privileges

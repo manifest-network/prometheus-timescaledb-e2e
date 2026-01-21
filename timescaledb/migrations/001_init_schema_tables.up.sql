@@ -25,7 +25,7 @@ BEGIN
         CREATE ROLE web_anon NOLOGIN;
     END IF;
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
-        CREATE ROLE authenticator NOINHERIT LOGIN PASSWORD 'authenticator';
+        CREATE ROLE authenticator NOINHERIT NOLOGIN;
     END IF;
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'writer') THEN
         CREATE ROLE writer NOLOGIN;
