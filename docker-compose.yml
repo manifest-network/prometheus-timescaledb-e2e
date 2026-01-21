@@ -73,6 +73,24 @@ services:
     network_mode: host
     restart: no
 
+  # Bulk refresh aggregates after backfill completes
+  refresh_aggregates:
+    image: timescale/timescaledb:latest-pg17
+    container_name: refresh_aggregates
+    depends_on:
+      vmalert_backfill_1Y:
+        condition: service_completed_successfully
+      vmalert_backfill_1W:
+        condition: service_completed_successfully
+      vmalert_backfill_forever:
+        condition: service_completed_successfully
+    volumes:
+      - ./timescaledb/scripts:/scripts:ro
+    entrypoint: ["psql", "-h", "timescaledb", "-U", "postgres", "-d", "metrics", "-f", "/scripts/bulk_refresh_aggregates.sql"]
+    environment:
+      PGPASSWORD: postgres
+    restart: "no"
+
   telegraf:
     image: telegraf:latest
     container_name: telegraf
