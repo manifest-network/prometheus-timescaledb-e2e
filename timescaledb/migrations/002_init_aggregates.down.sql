@@ -1,0 +1,10 @@
+BEGIN;
+
+DROP MATERIALIZED VIEW IF EXISTS internal.prometheus_common_1m CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS internal.prometheus_testnet_1m CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS internal.prometheus_mainnet_1m CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS internal.cagg_calculated_metric CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS geo.latest_coords CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS cumsum.all_metrics_minute CASCADE;
+
+COMMIT;
