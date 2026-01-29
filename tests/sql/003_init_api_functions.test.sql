@@ -2,7 +2,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(82);
+SELECT plan(92);
 
 -- =============================================================================
 -- 1. Excluded addresses functions
@@ -290,6 +290,75 @@ SELECT results_eq(
   'api.get_latest_fdv() returns correct value for mainnet'
 );
 
+-- Regression test: FDV should never return 0 when both total_supply and power_conversion exist
+-- This guards against the bug where single-query with OR conditions returned 0 during CAGG refresh
+SELECT ok(
+  (SELECT value::NUMERIC FROM api.get_latest_fdv('mainnet')) > 0,
+  'api.get_latest_fdv() returns non-zero value (regression test for CAGG refresh issue)'
+);
+
+SELECT ok(
+  (SELECT value::NUMERIC FROM api.get_latest_fdv('testnet')) > 0,
+  'api.get_latest_fdv() testnet returns non-zero value (regression test for CAGG refresh issue)'
+);
+
+-- Verify FDV row count matches total_supply bucket count (LEFT JOIN preserves all total_supply rows)
+SELECT ok(
+  (SELECT COUNT(*) FROM api.get_agg_fdv('mainnet', '1 minute', now() - interval '1 day', now())) =
+  (SELECT COUNT(DISTINCT bucket)
+   FROM internal.cagg_calculated_metric
+   WHERE schema = 'mainnet' AND name = 'manifest_tokenomics_total_supply'
+   AND bucket >= now() - interval '1 day' AND bucket < now()),
+  'api.get_agg_fdv() returns one row per total_supply bucket (LEFT JOIN test)'
+);
+
+-- =============================================================================
+-- 7b. FDV LEFT JOIN regression test
+-- =============================================================================
+-- This tests the actual regression: when total_supply exists but power_conversion
+-- is missing for a bucket, the LEFT JOIN approach still returns a row.
+-- The old single-query OR approach would fail during CAGG refresh when one
+-- metric was visible but the other wasn't.
+
+-- Insert test data: total_supply WITHOUT corresponding power_conversion
+INSERT INTO internal.prometheus_remote_write_tag (tag_id, supply)
+VALUES (999999, '1000000000000')
+ON CONFLICT (tag_id) DO UPDATE SET supply = '1000000000000';
+
+INSERT INTO internal.prometheus_remote_write (time, tag_id, name, schema, value)
+VALUES (
+  date_trunc('minute', now()) + interval '1 hour',  -- Future bucket with no power_conversion
+  999999,
+  'manifest_tokenomics_total_supply',
+  'mainnet',
+  1
+) ON CONFLICT (time, tag_id, name, schema) DO NOTHING;
+
+-- Verify get_agg_fdv returns a row for this bucket (LEFT JOIN behavior)
+-- With the old OR-query approach, this might not return a row or behave inconsistently
+SELECT ok(
+  (SELECT COUNT(*) FROM api.get_agg_fdv(
+    'mainnet', '1 minute',
+    date_trunc('minute', now()) + interval '59 minutes',
+    date_trunc('minute', now()) + interval '61 minutes'
+  )) = 1,
+  'api.get_agg_fdv() returns row when total_supply exists but power_conversion missing (LEFT JOIN regression test)'
+);
+
+-- The value should be 0 (total_supply * 0) since power_conversion is missing
+SELECT ok(
+  (SELECT value::NUMERIC FROM api.get_agg_fdv(
+    'mainnet', '1 minute',
+    date_trunc('minute', now()) + interval '59 minutes',
+    date_trunc('minute', now()) + interval '61 minutes'
+  )) = 0,
+  'api.get_agg_fdv() returns 0 when power_conversion missing (expected behavior)'
+);
+
+-- Cleanup test data
+DELETE FROM internal.prometheus_remote_write
+WHERE tag_id = 999999 AND time > now();
+
 -- =============================================================================
 -- 8. Market cap functions
 -- =============================================================================
@@ -329,6 +398,68 @@ SELECT results_eq(
   'VALUES (''161834547400184157.754'')',
   'api.get_latest_market_cap() returns correct value for mainnet'
 );
+
+-- Regression test: Market cap should never return 0 when all required metrics exist
+-- This guards against the bug where single-query with OR conditions returned 0 during CAGG refresh
+SELECT ok(
+  (SELECT value::NUMERIC FROM api.get_latest_market_cap('mainnet')) > 0,
+  'api.get_latest_market_cap() returns non-zero value (regression test for CAGG refresh issue)'
+);
+
+SELECT ok(
+  (SELECT value::NUMERIC FROM api.get_latest_market_cap('testnet')) > 0,
+  'api.get_latest_market_cap() testnet returns non-zero value (regression test for CAGG refresh issue)'
+);
+
+-- Verify market cap row count matches total_supply bucket count (LEFT JOIN preserves all rows)
+SELECT ok(
+  (SELECT COUNT(*) FROM api.get_agg_market_cap('mainnet', '1 minute', now() - interval '1 day', now())) =
+  (SELECT COUNT(DISTINCT bucket)
+   FROM internal.cagg_calculated_metric
+   WHERE schema = 'mainnet' AND name = 'manifest_tokenomics_total_supply'
+   AND bucket >= now() - interval '1 day' AND bucket < now()),
+  'api.get_agg_market_cap() returns one row per total_supply bucket (LEFT JOIN test)'
+);
+
+-- =============================================================================
+-- 8b. Market cap LEFT JOIN regression test
+-- =============================================================================
+-- Same test as FDV: verify LEFT JOIN returns a row when power_conversion is missing
+
+-- Insert test data for market cap (reuse same tag but different time)
+INSERT INTO internal.prometheus_remote_write (time, tag_id, name, schema, value)
+VALUES (
+  date_trunc('minute', now()) + interval '2 hours',  -- Different future bucket
+  999999,
+  'manifest_tokenomics_total_supply',
+  'mainnet',
+  1
+) ON CONFLICT (time, tag_id, name, schema) DO NOTHING;
+
+-- Verify get_agg_market_cap returns a row for this bucket (LEFT JOIN behavior)
+SELECT ok(
+  (SELECT COUNT(*) FROM api.get_agg_market_cap(
+    'mainnet', '1 minute',
+    date_trunc('minute', now()) + interval '119 minutes',
+    date_trunc('minute', now()) + interval '121 minutes'
+  )) = 1,
+  'api.get_agg_market_cap() returns row when total_supply exists but power_conversion missing (LEFT JOIN regression test)'
+);
+
+-- The value should be 0 since power_conversion is missing
+SELECT ok(
+  (SELECT value::NUMERIC FROM api.get_agg_market_cap(
+    'mainnet', '1 minute',
+    date_trunc('minute', now()) + interval '119 minutes',
+    date_trunc('minute', now()) + interval '121 minutes'
+  )) = 0,
+  'api.get_agg_market_cap() returns 0 when power_conversion missing (expected behavior)'
+);
+
+-- Cleanup test data
+DELETE FROM internal.prometheus_remote_write
+WHERE tag_id = 999999 AND time > now();
+DELETE FROM internal.prometheus_remote_write_tag WHERE tag_id = 999999;
 
 -- =============================================================================
 -- 9. Token metrics helper functions

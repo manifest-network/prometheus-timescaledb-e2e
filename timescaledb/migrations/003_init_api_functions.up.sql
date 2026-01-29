@@ -244,7 +244,7 @@ GRANT EXECUTE ON FUNCTION api.get_agg_burned_supply(TEXT, INTERVAL, TIMESTAMPTZ,
 GRANT EXECUTE ON FUNCTION api.get_latest_burned_supply(TEXT) TO web_anon;
 
 -- -----------------------------------------------------------------------------
--- 7. FDV functions (optimized single scan)
+-- 7. FDV functions (uses LEFT JOIN for refresh resilience)
 -- -----------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION api.get_agg_fdv(
@@ -255,20 +255,29 @@ CREATE OR REPLACE FUNCTION api.get_agg_fdv(
 )
 RETURNS TABLE("timestamp" TIMESTAMPTZ, "value" TEXT) AS $$
     SELECT
-        time_bucket(p_interval, bucket) AS "timestamp",
-        (
-            COALESCE(MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' AND schema = p_schema THEN value::NUMERIC END), 0) *
-            COALESCE(MAX(CASE WHEN name = 'talib_mfx_power_conversion' AND schema = 'common' THEN value::NUMERIC END), 0)
-        )::TEXT AS "value"
-    FROM internal.cagg_calculated_metric
-    WHERE (
-        (schema = p_schema AND name = 'manifest_tokenomics_total_supply')
-        OR (schema = 'common' AND name = 'talib_mfx_power_conversion')
-    )
-      AND bucket >= p_from
-      AND bucket < p_to
-    GROUP BY time_bucket(p_interval, bucket)
-    HAVING MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' AND schema = p_schema THEN 1 END) IS NOT NULL
+        ts.bucket AS "timestamp",
+        (COALESCE(ts.total_supply, 0) * COALESCE(pc.power_conversion, 0))::TEXT AS "value"
+    FROM (
+        SELECT
+            time_bucket(p_interval, bucket) AS bucket,
+            MAX(value::NUMERIC) AS total_supply
+        FROM internal.cagg_calculated_metric
+        WHERE schema = p_schema
+          AND name = 'manifest_tokenomics_total_supply'
+          AND bucket >= p_from
+          AND bucket < p_to
+        GROUP BY time_bucket(p_interval, bucket)
+    ) ts
+    LEFT JOIN (
+        SELECT
+            time_bucket(p_interval, bucket) AS bucket,
+            MAX(value::NUMERIC) AS power_conversion
+        FROM internal.cagg_calculated_metric
+        WHERE name = 'talib_mfx_power_conversion'
+          AND bucket >= p_from
+          AND bucket < p_to
+        GROUP BY time_bucket(p_interval, bucket)
+    ) pc ON ts.bucket = pc.bucket
     ORDER BY "timestamp" ASC;
 $$ LANGUAGE sql STABLE
 SECURITY DEFINER
@@ -295,7 +304,7 @@ GRANT EXECUTE ON FUNCTION api.get_agg_fdv(TEXT, INTERVAL, TIMESTAMPTZ, TIMESTAMP
 GRANT EXECUTE ON FUNCTION api.get_latest_fdv(TEXT) TO web_anon;
 
 -- -----------------------------------------------------------------------------
--- 8. Market cap functions (optimized single scan)
+-- 8. Market cap functions (uses LEFT JOIN for refresh resilience)
 -- -----------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION api.get_agg_market_cap(
@@ -306,27 +315,42 @@ CREATE OR REPLACE FUNCTION api.get_agg_market_cap(
 )
 RETURNS TABLE("timestamp" TIMESTAMPTZ, "value" TEXT) AS $$
     SELECT
-        time_bucket(p_interval, bucket) AS "timestamp",
+        ts.bucket AS "timestamp",
         ((
-            COALESCE(MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' AND schema = p_schema THEN value::NUMERIC END), 0)
-            - COALESCE(MAX(CASE WHEN name = 'manifest_tokenomics_excluded_supply' AND schema = p_schema THEN value::NUMERIC END), 0)
-            - COALESCE(MAX(CASE WHEN name = 'locked_tokens' AND schema = p_schema THEN value::NUMERIC END), 0)
-            - COALESCE(MAX(CASE WHEN name = 'locked_fees' AND schema = p_schema THEN value::NUMERIC END), 0)
-        ) * COALESCE(MAX(CASE WHEN name = 'talib_mfx_power_conversion' AND schema = 'common' THEN value::NUMERIC END), 0))::TEXT AS "value"
-    FROM internal.cagg_calculated_metric
-    WHERE (
-        (schema = p_schema AND name IN (
+            COALESCE(ts.total_supply, 0)
+            - COALESCE(ts.excluded_supply, 0)
+            - COALESCE(ts.locked_tokens, 0)
+            - COALESCE(ts.locked_fees, 0)
+        ) * COALESCE(pc.power_conversion, 0))::TEXT AS "value"
+    FROM (
+        SELECT
+            time_bucket(p_interval, bucket) AS bucket,
+            MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' THEN value::NUMERIC END) AS total_supply,
+            MAX(CASE WHEN name = 'manifest_tokenomics_excluded_supply' THEN value::NUMERIC END) AS excluded_supply,
+            MAX(CASE WHEN name = 'locked_tokens' THEN value::NUMERIC END) AS locked_tokens,
+            MAX(CASE WHEN name = 'locked_fees' THEN value::NUMERIC END) AS locked_fees
+        FROM internal.cagg_calculated_metric
+        WHERE schema = p_schema
+          AND name IN (
             'manifest_tokenomics_total_supply',
             'manifest_tokenomics_excluded_supply',
             'locked_tokens',
             'locked_fees'
-        ))
-        OR (schema = 'common' AND name = 'talib_mfx_power_conversion')
-    )
-      AND bucket >= p_from
-      AND bucket < p_to
-    GROUP BY time_bucket(p_interval, bucket)
-    HAVING MAX(CASE WHEN name = 'manifest_tokenomics_total_supply' AND schema = p_schema THEN 1 END) IS NOT NULL
+          )
+          AND bucket >= p_from
+          AND bucket < p_to
+        GROUP BY time_bucket(p_interval, bucket)
+    ) ts
+    LEFT JOIN (
+        SELECT
+            time_bucket(p_interval, bucket) AS bucket,
+            MAX(value::NUMERIC) AS power_conversion
+        FROM internal.cagg_calculated_metric
+        WHERE name = 'talib_mfx_power_conversion'
+          AND bucket >= p_from
+          AND bucket < p_to
+        GROUP BY time_bucket(p_interval, bucket)
+    ) pc ON ts.bucket = pc.bucket
     ORDER BY "timestamp" ASC;
 $$ LANGUAGE sql STABLE
 SECURITY DEFINER
